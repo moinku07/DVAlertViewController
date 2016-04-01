@@ -20,6 +20,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     
     private var popoverVC: UIViewController!
     var parentController: UIViewController!
+    private var popoverView: UIView?
     var style: DVAlertViewControllerStyle!
     override var title: String?{
         didSet{
@@ -177,6 +178,24 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     var cancelBlock : (() -> Void)?
     var doneBlock : ((index: Int?) -> Void)?
     
+    convenience init(parentController: UIViewController, popoverView: UIView, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil){
+        self.init()
+        
+        self.modalPresentationStyle = UIModalPresentationStyle.OverCurrentContext
+        self.modalTransitionStyle = UIModalTransitionStyle.CrossDissolve
+        
+        self.parentController = parentController
+        self.popoverVC = nil
+        self.popoverView = popoverView
+        self.style = style
+        self.contentSize = contentSize != nil ? contentSize : self.isPad() ? CGSizeMake(400, 300) : CGSizeMake(280, 220)
+        
+        self.view.userInteractionEnabled = true
+        self.view.multipleTouchEnabled = true
+        
+        self.createPopupContents()
+    }
+    
     convenience init(parentController: UIViewController, popoverVC: UIViewController?, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil){
         self.init()
         
@@ -278,15 +297,16 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         self.view.addSubview(containerView)
         
         var height: CGFloat = self.contentSize != nil ? self.contentSize!.height + 16 : self.contentSize!.height + 99
-        if height >= parentController.view.bounds.size.height - 110{
+        
+        if (fromViewPoint != nil || fromView != nil) && height >= parentController.view.bounds.size.height - 110{
            height = parentController.view.bounds.size.height - 150
         }
         
         var width: CGFloat = self.contentSize != nil ? self.contentSize!.width : 280
+        
         if width >= parentController.view.bounds.size.width{
             width = parentController.view.bounds.size.width - 20
         }
-        
         if self.style == DVAlertViewControllerStyle.ActionSheet{
             height = actionSheetHeight
             width = UIScreen.mainScreen().bounds.width
@@ -296,7 +316,6 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             fromViewPoint = pvc.view.convertPoint(CGPointMake(0, 0), fromView: fromView)
             //print(fromViewPoint)
         }
-        
         if fromViewPoint != nil{
             if fromView != nil{
                 fromViewHeight = fromView!.bounds.size.height
@@ -575,6 +594,9 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             
             self.addChildViewController(popoverVC)
             popoverVC.didMoveToParentViewController(self)
+        }else if popoverView != nil{
+            popoverView!.frame = contentView.bounds
+            contentView.addSubview(popoverView!)
         }else{
             tableView = UITableView(frame: self.contentView.bounds)
             //tableView.backgroundColor = UIColor.redColor()

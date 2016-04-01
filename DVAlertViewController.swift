@@ -223,7 +223,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         self.style = style
         self.contentSize = contentSize != nil ? contentSize : self.isPad() ? CGSizeMake(400, 300) : CGSizeMake(280, 220)
         self.fromViewPoint = fromPoint
-        print(fromViewPoint)
+        //print(fromViewPoint)
         self.view.userInteractionEnabled = true
         self.view.multipleTouchEnabled = true
         
@@ -604,7 +604,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
                     }
                     var centerX: CGFloat = self.fromViewPoint!.x
                     centerX = self.fromViewPoint!.x - self.view.convertPoint(CGPointMake(0, 0), fromView: self.containerView).x
-                    print("centerX = \(centerX)")
+                    //print("centerX = \(centerX)")
                     if self.fromView != nil{
                         if self.contentSize?.width <= centerX + self.fromViewWidth/2 + 10{
                             centerX = centerX + self.contentSize!.width/2 - 5
@@ -612,7 +612,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
                             centerX = centerX + self.fromViewWidth/2
                         }
                     }
-                    print("centerX1 = \(centerX)")
+                    //print("centerX1 = \(centerX)")
                     var path: CGPathRef = self.newBubble(CGPointMake(centerX - 5, 0), y: CGPointMake(centerX + 5, 0), z: CGPointMake(centerX, -10))
                     if self.shouldShowInTop{
                         path = self.newBubble(CGPointMake(centerX - 5, self.containerView.frame.size.height), y: CGPointMake(centerX + 5, self.containerView.frame.size.height), z: CGPointMake(centerX, self.containerView.frame.size.height + 10))

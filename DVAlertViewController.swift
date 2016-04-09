@@ -60,6 +60,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     var tableData: [String] = [String]()
     private var selectedIndexPath: NSIndexPath?
     private var prevSelectedIndexPath: NSIndexPath?
+    var shouldReturnSelectionOnDismiss: Bool = true
     var selectedIndex: Int?{
         didSet{
             selectedIndexPath = NSIndexPath(forRow: selectedIndex!, inSection: 0)
@@ -566,7 +567,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     
     override func touchesBegan(touches: Set<UITouch>, withEvent event: UIEvent?) {
         for _ in touches{
-            if tableData.count > 0 || tableDictionaryData.count > 0{
+            if (tableData.count > 0 || tableDictionaryData.count > 0) && shouldReturnSelectionOnDismiss{
                 self.createButton.sendActionsForControlEvents(UIControlEvents.TouchUpInside)
             }else{
                 self.hide()

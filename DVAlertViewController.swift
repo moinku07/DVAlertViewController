@@ -16,7 +16,7 @@ enum DVAlertViewControllerCellType: Int {
     case Default = 0, Date, DateTime, Picker
 }
 
-class DVAlertViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, UIPickerViewDataSource, UIPickerViewDelegate {
+class DVAlertViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, UIPickerViewDataSource, UIPickerViewDelegate, UITextFieldDelegate, UITextViewDelegate {
     
     private var popoverVC: UIViewController!
     var parentController: UIViewController!
@@ -47,6 +47,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     private let actionSheetHeight: CGFloat = 250
     
     private var containerView: UIView!
+    private var containerViewHeightCns: NSLayoutConstraint!
     private var contentView: UIView!
     private var contentSize: CGSize? = nil
     private var titleLabel: UILabel!
@@ -106,6 +107,8 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     ]*/
     
     // End of table with dictionary
+    
+    var inputFields: [AnyObject]?
     
     var hiddenControl: Bool = false{
         didSet{
@@ -215,6 +218,13 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         self.createPopupContents()
     }
     
+    convenience init(inputFields: [AnyObject], popoverVC: UIViewController, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil) {
+        
+        self.init(parentController: popoverVC, popoverVC: nil, style: style, contentSize: contentSize)
+        
+        self.inputFields = inputFields
+    }
+    
     convenience init(parentController: UIViewController, popoverVC: UIViewController?, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil, fromView: UIView){
         self.init()
         
@@ -286,6 +296,20 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         self.tableDictionaryData = data
     }
     
+    convenience init(inputFields: [AnyObject], parentController: UIViewController, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil, fromPoint: CGPoint) {
+        
+        self.init(parentController: parentController, popoverVC: nil, style: style, contentSize: contentSize, fromPoint: fromPoint)
+        
+        self.inputFields = inputFields
+    }
+    
+    convenience init(inputFields: [AnyObject], parentController: UIViewController, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil, fromView: UIView) {
+        
+        self.init(parentController: parentController, popoverVC: nil, style: style, contentSize: contentSize, fromView: fromView)
+        
+        self.inputFields = inputFields
+    }
+    
     func createPopupContents(){
         self.view.backgroundColor = UIColor.blackColor().colorWithAlphaComponent(0.2)
         
@@ -352,14 +376,17 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         //print("shouldShowInRigth = \(shouldShowInRigth)")
         
         // containerView constraints
-        self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.Height, multiplier: 1.0, constant: height))
+        containerViewHeightCns = NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.Height, multiplier: 1.0, constant: height)
+        self.view.addConstraint(containerViewHeightCns)
         let centerX: NSLayoutConstraint = NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.CenterX, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.CenterX, multiplier: 1.0, constant: 0)
         self.view.addConstraint(centerX)
         
         if self.style == DVAlertViewControllerStyle.Popup{
             self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.Width, multiplier: 1.0, constant: width))
             if shouldShowInCenterY{
-                self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.CenterY, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.CenterY, multiplier: 1.0, constant: 0))
+                let centerYCns: NSLayoutConstraint = NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.CenterY, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.CenterY, multiplier: 1.0, constant: 0)
+                centerYCns.priority = 750
+                self.view.addConstraint(centerYCns)
             }else if shouldShowInBottom{
                 //print("bottom")
                 self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Top, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.Top, multiplier: 1.0, constant: (fromViewPoint!.y + fromViewHeight + 10)))
@@ -427,7 +454,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             containerView.addConstraint(NSLayoutConstraint(item: buttonsContainer, attribute: NSLayoutAttribute.Trailing, relatedBy: NSLayoutRelation.Equal, toItem: containerView, attribute: NSLayoutAttribute.Trailing, multiplier: 1.0, constant: 0))
             containerView.addConstraint(NSLayoutConstraint(item: buttonsContainer, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.Equal, toItem: containerView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 0))
             
-            borderView.backgroundColor = UIColor(red: 200/255, green: 199/255, blue: 204/255, alpha: 0.5)
+            borderView.backgroundColor = UIColor(red: 200/255, green: 199/255, blue: 204/255, alpha: 1)
             borderView.translatesAutoresizingMaskIntoConstraints = false
             
             buttonsContainer.addSubview(borderView)
@@ -491,18 +518,18 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             buttonsContainer.addSubview(buttonSeperatorBorder)
             
             buttonsContainer.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.GreaterThanOrEqual, toItem: nil, attribute: NSLayoutAttribute.Height, multiplier: 1.0, constant: 40))
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Width, multiplier: 0.5, constant: -0.25))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Width, multiplier: 0.5, constant: -0.5))
             buttonsContainer.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.Leading, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Leading, multiplier: 1.0, constant: 0))
             buttonsContainer.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.Top, relatedBy: NSLayoutRelation.Equal, toItem: borderView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 0))
             buttonsContainer.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 0))
             
             buttonsContainer.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.GreaterThanOrEqual, toItem: nil, attribute: NSLayoutAttribute.Height, multiplier: 1.0, constant: 40))
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Width, multiplier: 0.5, constant: -0.25))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Width, multiplier: 0.5, constant: -0.5))
             buttonsContainer.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.Trailing, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Trailing, multiplier: 1.0, constant: 0))
             buttonsContainer.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.Top, relatedBy: NSLayoutRelation.Equal, toItem: borderView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 0))
             buttonsContainer.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 0))
             
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: buttonSeperatorBorder, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.GreaterThanOrEqual, toItem: nil, attribute: NSLayoutAttribute.Width, multiplier: 1.0, constant: 0.5))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: buttonSeperatorBorder, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.GreaterThanOrEqual, toItem: nil, attribute: NSLayoutAttribute.Width, multiplier: 1.0, constant: 1))
             buttonsContainer.addConstraint(NSLayoutConstraint(item: buttonSeperatorBorder, attribute: NSLayoutAttribute.Top, relatedBy: NSLayoutRelation.GreaterThanOrEqual, toItem: borderView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 0))
             buttonsContainer.addConstraint(NSLayoutConstraint(item: buttonSeperatorBorder, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.GreaterThanOrEqual, toItem: buttonsContainer, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 0))
             buttonsContainer.addConstraint(NSLayoutConstraint(item: buttonSeperatorBorder, attribute: NSLayoutAttribute.CenterX, relatedBy: NSLayoutRelation.GreaterThanOrEqual, toItem: buttonsContainer, attribute: NSLayoutAttribute.CenterX, multiplier: 1.0, constant: 0))
@@ -524,6 +551,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         
         contentView = UIView()
         contentView.backgroundColor = UIColor.clearColor()
+        //contentView.backgroundColor = UIColor.greenColor()
         contentView.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(contentView)
         
@@ -566,11 +594,15 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     }
     
     override func touchesBegan(touches: Set<UITouch>, withEvent event: UIEvent?) {
-        for _ in touches{
-            if (tableData.count > 0 || tableDictionaryData.count > 0) && shouldReturnSelectionOnDismiss{
-                self.createButton.sendActionsForControlEvents(UIControlEvents.TouchUpInside)
-            }else{
-                self.hide()
+        if let touch: UITouch = touches.first{
+            let location = touch.locationInView(self.view)
+            let fingerRect: CGRect = CGRectMake(location.x-5, location.y-5, 10, 10)
+            if !CGRectIntersectsRect(fingerRect, containerView.frame){
+                if (tableData.count > 0 || tableDictionaryData.count > 0) && shouldReturnSelectionOnDismiss{
+                    self.createButton.sendActionsForControlEvents(UIControlEvents.TouchUpInside)
+                }else{
+                    self.hide()
+                }
             }
         }
     }
@@ -606,7 +638,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         }else if popoverView != nil{
             popoverView!.frame = contentView.bounds
             contentView.addSubview(popoverView!)
-        }else{
+        }else if tableData.count > 0 || tableDictionaryData.count > 0{
             tableView = UITableView(frame: self.contentView.bounds)
             //tableView.backgroundColor = UIColor.redColor()
             tableView?.delegate = self
@@ -618,6 +650,54 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             
             self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("H:|-0-[table]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["table": tableView!]))
             self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:|-0-[table]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["table": tableView!]))
+        }else if inputFields != nil{
+            let contentViewHeight: CGFloat = CGFloat(inputFields!.count) * 30.0
+            var topView: UIView? = nil
+            for (index, field) in inputFields!.enumerate(){
+                if let textField: UITextField = field as? UITextField{
+                    textField.delegate = self
+                    textField.returnKeyType = UIReturnKeyType.Done
+                    textField.translatesAutoresizingMaskIntoConstraints = false
+                    contentView.addSubview(textField)
+                    
+                    self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("H:|-0-[textField]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["textField": textField]))
+                    
+                    if topView == nil{
+                        if index < inputFields!.count - 1{
+                            self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:|-0-[textField(30)]", options: NSLayoutFormatOptions(), metrics: nil, views: ["textField": textField]))
+                        }else{
+                            self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:|-0-[textField(30)]-(>=0)-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["textField": textField]))
+                        }
+                    }else{
+                        if index < inputFields!.count - 1{
+                            self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:[topView]-0-[textField(30)]", options: NSLayoutFormatOptions(), metrics: nil, views: ["textField": textField, "topView": topView!]))
+                        }else{
+                            self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:[topView]-0-[textField(30)]-(>=0)-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["textField": textField, "topView": topView!]))
+                        }
+                    }
+                    
+                    topView = textField
+                }
+            }
+            if !hiddenControl && !hiddenToolbar{
+                containerView.removeConstraint(containerViewHeightCns)
+                self.view.needsUpdateConstraints()
+                containerViewHeightCns.constant = contentViewHeight + 81.0 + 16.0
+                containerView.addConstraint(containerViewHeightCns)
+                self.view.layoutIfNeeded()
+            }else if !hiddenControl || !hiddenToolbar{
+                containerView.removeConstraint(containerViewHeightCns)
+                self.view.needsUpdateConstraints()
+                containerViewHeightCns.constant = contentViewHeight + 41.0 + 16.0
+                containerView.addConstraint(containerViewHeightCns)
+                self.view.layoutIfNeeded()
+            }else if hiddenControl && hiddenToolbar{
+                containerView.removeConstraint(containerViewHeightCns)
+                self.view.needsUpdateConstraints()
+                containerViewHeightCns.constant = contentViewHeight + 16.0
+                containerView.addConstraint(containerViewHeightCns)
+                self.view.layoutIfNeeded()
+            }
         }
         
         if self.style == DVAlertViewControllerStyle.Popup{
@@ -973,6 +1053,51 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             cell.textLabel?.text = self.dateFormatter.stringFromDate(targetedDatePicker.date)
         }
     }
+    
+    // MARK: - UITextFieldDelegate
+    func textFieldShouldBeginEditing(textField: UITextField) -> Bool {
+        let point: CGPoint = self.view.convertPoint(CGPointMake(self.view.frame.size.width / 2, self.view.frame.size.height), toView: textField)
+        if point.y < 284{
+            let anotherPoint: CGPoint = self.view.convertPoint(CGPointMake(self.view.frame.size.width / 2, self.view.frame.size.height), toView: self.containerView)
+            //print("point = \(point), anotherPoint = \(anotherPoint)")
+            
+            for cns in self.view.constraints{
+                if cns.identifier == "bottomCnsForInputs"{
+                    self.view.removeConstraint(cns)
+                    break
+                }
+            }
+            
+            let bottomSpace: CGFloat = anotherPoint.y - containerView.frame.size.height + (284 - point.y)
+            let bottomCns: NSLayoutConstraint = NSLayoutConstraint(item: self.view, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.Equal, toItem: self.containerView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: bottomSpace)
+            bottomCns.identifier = "bottomCnsForInputs"
+            self.view.needsUpdateConstraints()
+            self.view.addConstraint(bottomCns)
+            UIView.animateWithDuration(0.25, animations: { 
+                self.view.layoutIfNeeded()
+            })
+        }
+        return true
+    }
+    
+    func textFieldShouldReturn(textField: UITextField) -> Bool {
+        textField.resignFirstResponder()
+        
+        return false
+    }
+    
+    func textFieldDidEndEditing(textField: UITextField) {
+        self.view.needsUpdateConstraints()
+        for cns in self.view.constraints{
+            if cns.identifier == "bottomCnsForInputs"{
+                self.view.removeConstraint(cns)
+                break
+            }
+        }
+        UIView.animateWithDuration(0.25, animations: {
+            self.view.layoutIfNeeded()
+        })
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -1012,6 +1137,84 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         
         CGPathCloseSubpath(path)
         return path
+    }
+    
+    func addBorder(view: UIView, edges: UIRectEdge, colour: UIColor = UIColor.whiteColor(), thickness: CGFloat = 1) -> [UIView] {
+        
+        var borders = [UIView]()
+        
+        func border() -> UIView {
+            let border = UIView(frame: CGRectZero)
+            border.backgroundColor = colour
+            border.translatesAutoresizingMaskIntoConstraints = false
+            return border
+        }
+        
+        if edges.contains(.Top) || edges.contains(.All) {
+            let top = border()
+            view.addSubview(top)
+            view.addConstraints(
+                NSLayoutConstraint.constraintsWithVisualFormat("V:|-(0)-[top(==thickness)]",
+                    options: [],
+                    metrics: ["thickness": thickness],
+                    views: ["top": top]))
+            view.addConstraints(
+                NSLayoutConstraint.constraintsWithVisualFormat("H:|-(0)-[top]-(0)-|",
+                    options: [],
+                    metrics: nil,
+                    views: ["top": top]))
+            borders.append(top)
+        }
+        
+        if edges.contains(.Left) || edges.contains(.All) {
+            let left = border()
+            view.addSubview(left)
+            view.addConstraints(
+                NSLayoutConstraint.constraintsWithVisualFormat("H:|-(0)-[left(==thickness)]",
+                    options: [],
+                    metrics: ["thickness": thickness],
+                    views: ["left": left]))
+            view.addConstraints(
+                NSLayoutConstraint.constraintsWithVisualFormat("V:|-(0)-[left]-(0)-|",
+                    options: [],
+                    metrics: nil,
+                    views: ["left": left]))
+            borders.append(left)
+        }
+        
+        if edges.contains(.Right) || edges.contains(.All) {
+            let right = border()
+            view.addSubview(right)
+            view.addConstraints(
+                NSLayoutConstraint.constraintsWithVisualFormat("H:[right(==thickness)]-(0)-|",
+                    options: [],
+                    metrics: ["thickness": thickness],
+                    views: ["right": right]))
+            view.addConstraints(
+                NSLayoutConstraint.constraintsWithVisualFormat("V:|-(0)-[right]-(0)-|",
+                    options: [],
+                    metrics: nil,
+                    views: ["right": right]))
+            borders.append(right)
+        }
+        
+        if edges.contains(.Bottom) || edges.contains(.All) {
+            let bottom = border()
+            view.addSubview(bottom)
+            view.addConstraints(
+                NSLayoutConstraint.constraintsWithVisualFormat("V:[bottom(==thickness)]-(0)-|",
+                    options: [],
+                    metrics: ["thickness": thickness],
+                    views: ["bottom": bottom]))
+            view.addConstraints(
+                NSLayoutConstraint.constraintsWithVisualFormat("H:|-(0)-[bottom]-(0)-|",
+                    options: [],
+                    metrics: nil,
+                    views: ["bottom": bottom]))
+            borders.append(bottom)
+        }
+        
+        return borders
     }
 
 }

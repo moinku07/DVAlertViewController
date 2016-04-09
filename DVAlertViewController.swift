@@ -108,7 +108,8 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     
     // End of table with dictionary
     
-    var inputFields: [AnyObject]?
+    private var inputFields: [AnyObject]?
+    var inputFieldHeight: CGFloat = 30.0
     
     var hiddenControl: Bool = false{
         didSet{
@@ -342,6 +343,8 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         if let pvc: UIViewController = fromView?.parentViewController{
             fromViewPoint = pvc.view.convertPoint(CGPointMake(0, 0), fromView: fromView)
         }
+        //print("fromViewPoint after = \(fromViewPoint)")
+        
         if fromViewPoint != nil{
             if fromView != nil{
                 fromViewHeight = fromView!.bounds.size.height
@@ -355,10 +358,18 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
                 shouldShowInTop = true
             }
             
-            if fromViewPoint!.x > 15 && fromViewPoint!.x - parentController.view.bounds.size.width/2 < 0 && parentController.view.bounds.size.width - fromViewPoint!.x >= width{
-                shouldShowInLeft = true
-            }else if fromViewPoint!.x - parentController.view.bounds.size.width/2 > 0 && parentController.view.bounds.size.width - 15 >= width{
-                shouldShowInRigth = true
+            if fromView != nil{
+                if (fromViewPoint!.x + fromView!.frame.size.width / 2) > 15 && fromViewPoint!.x - parentController.view.bounds.size.width/2 < 0 && parentController.view.bounds.size.width - fromViewPoint!.x >= width{
+                    shouldShowInLeft = true
+                }else if fromViewPoint!.x - parentController.view.bounds.size.width/2 > 0 && parentController.view.bounds.size.width - 15 >= width{
+                    shouldShowInRigth = true
+                }
+            }else{
+                if fromViewPoint!.x > 15 && fromViewPoint!.x - parentController.view.bounds.size.width/2 < 0 && parentController.view.bounds.size.width - fromViewPoint!.x >= width{
+                    shouldShowInLeft = true
+                }else if fromViewPoint!.x - parentController.view.bounds.size.width/2 > 0 && parentController.view.bounds.size.width - 15 >= width{
+                    shouldShowInRigth = true
+                }
             }
         }
         
@@ -402,8 +413,14 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             }else if shouldShowInLeft{
                 self.view.removeConstraint(centerX)
                 //print("shouldShowInLeft = \(shouldShowInLeft)")
-                //print(fromViewPoint!.x - 10)
-                self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Leading, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.Leading, multiplier: 1.0, constant: (fromViewPoint!.x - 10)))
+                
+                var constant: CGFloat = fromViewPoint!.x - 10
+                if fromView != nil && fromViewPoint!.x < 15{
+                    constant = fromViewPoint!.x + (fromView!.frame.size.width / 2) - 10
+                }
+                
+                //print("constant = \(constant)")
+                self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Leading, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.Leading, multiplier: 1.0, constant: constant))
             }
         }else if self.style == DVAlertViewControllerStyle.ActionSheet{
             self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Leading, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.Leading, multiplier: 1.0, constant: 0))
@@ -651,7 +668,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("H:|-0-[table]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["table": tableView!]))
             self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:|-0-[table]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["table": tableView!]))
         }else if inputFields != nil{
-            let contentViewHeight: CGFloat = CGFloat(inputFields!.count) * 30.0
+            var contentViewHeight: CGFloat = CGFloat(inputFields!.count) * inputFieldHeight
             var topView: UIView? = nil
             for (index, field) in inputFields!.enumerate(){
                 if let textField: UITextField = field as? UITextField{
@@ -662,39 +679,43 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
                     
                     self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("H:|-0-[textField]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["textField": textField]))
                     
-                    if topView == nil{
-                        if index < inputFields!.count - 1{
-                            self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:|-0-[textField(30)]", options: NSLayoutFormatOptions(), metrics: nil, views: ["textField": textField]))
-                        }else{
-                            self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:|-0-[textField(30)]-(>=0)-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["textField": textField]))
-                        }
+                    if inputFields?.count == 1{
+                        self.contentView.addConstraint(NSLayoutConstraint(item: textField, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.Height, multiplier: 1.0, constant: inputFieldHeight))
+                        self.contentView.addConstraint(NSLayoutConstraint(item: textField, attribute: NSLayoutAttribute.CenterY, relatedBy: NSLayoutRelation.Equal, toItem: self.contentView, attribute: NSLayoutAttribute.CenterY, multiplier: 1.0, constant: 0))
                     }else{
-                        if index < inputFields!.count - 1{
-                            self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:[topView]-0-[textField(30)]", options: NSLayoutFormatOptions(), metrics: nil, views: ["textField": textField, "topView": topView!]))
+                        if topView == nil{
+                            if index < inputFields!.count - 1{
+                                self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:|-0-[textField(height)]", options: NSLayoutFormatOptions(), metrics: ["height": inputFieldHeight], views: ["textField": textField]))
+                            }else{
+                                self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:|-0-[textField(height)]-(>=0)-|", options: NSLayoutFormatOptions(), metrics: ["height": inputFieldHeight], views: ["textField": textField]))
+                            }
                         }else{
-                            self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:[topView]-0-[textField(30)]-(>=0)-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["textField": textField, "topView": topView!]))
+                            if index < inputFields!.count - 1{
+                                self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:[topView]-0-[textField(height)]", options: NSLayoutFormatOptions(), metrics: ["height": inputFieldHeight], views: ["textField": textField, "topView": topView!]))
+                            }else{
+                                self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:[topView]-0-[textField(height)]-(>=0)-|", options: NSLayoutFormatOptions(), metrics: ["height": inputFieldHeight], views: ["textField": textField, "topView": topView!]))
+                            }
                         }
                     }
                     
                     topView = textField
                 }
             }
+            
+            
+            
             if !hiddenControl && !hiddenToolbar{
-                containerView.removeConstraint(containerViewHeightCns)
-                self.view.needsUpdateConstraints()
-                containerViewHeightCns.constant = contentViewHeight + 81.0 + 16.0
-                containerView.addConstraint(containerViewHeightCns)
-                self.view.layoutIfNeeded()
+                contentViewHeight = contentViewHeight + 81.0 + 16.0
             }else if !hiddenControl || !hiddenToolbar{
-                containerView.removeConstraint(containerViewHeightCns)
-                self.view.needsUpdateConstraints()
-                containerViewHeightCns.constant = contentViewHeight + 41.0 + 16.0
-                containerView.addConstraint(containerViewHeightCns)
-                self.view.layoutIfNeeded()
+                contentViewHeight = contentViewHeight + 41.0 + 16.0
             }else if hiddenControl && hiddenToolbar{
+                contentViewHeight = contentViewHeight + 16.0
+            }
+            
+            if contentViewHeight > contentSize?.height{
                 containerView.removeConstraint(containerViewHeightCns)
                 self.view.needsUpdateConstraints()
-                containerViewHeightCns.constant = contentViewHeight + 16.0
+                containerViewHeightCns.constant = contentViewHeight
                 containerView.addConstraint(containerViewHeightCns)
                 self.view.layoutIfNeeded()
             }

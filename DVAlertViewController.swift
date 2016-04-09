@@ -55,7 +55,8 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     private var buttonsContainer: UIView!
     private var toolbar: UIView!
     private var _bgLayer: CAShapeLayer!
-    internal var tableView: UITableView?
+    private var tableView: UITableView?
+    var tableRowHeight: CGFloat = 44.0
     var tableData: [String] = [String]()
     private var selectedIndexPath: NSIndexPath?
     private var prevSelectedIndexPath: NSIndexPath?
@@ -312,9 +313,9 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             width = UIScreen.mainScreen().bounds.width
         }
         contentSize = CGSizeMake(width, height)
+        //print("fromViewPoint before = \(fromViewPoint)")
         if let pvc: UIViewController = fromView?.parentViewController{
             fromViewPoint = pvc.view.convertPoint(CGPointMake(0, 0), fromView: fromView)
-            //print(fromViewPoint)
         }
         if fromViewPoint != nil{
             if fromView != nil{
@@ -331,7 +332,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             
             if fromViewPoint!.x > 15 && fromViewPoint!.x - parentController.view.bounds.size.width/2 < 0 && parentController.view.bounds.size.width - fromViewPoint!.x >= width{
                 shouldShowInLeft = true
-            }else if fromViewPoint!.x - parentController.view.bounds.size.width/2 > 0 && fromViewPoint!.x + fromViewWidth + 15 <= parentController.view.bounds.size.width{
+            }else if fromViewPoint!.x - parentController.view.bounds.size.width/2 > 0 && parentController.view.bounds.size.width - 15 >= width{
                 shouldShowInRigth = true
             }
         }
@@ -341,6 +342,13 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             shouldShowInRigth = false
             shouldShowInLeft = false
         }
+        
+        //print("fromViewPoint after = \(fromViewPoint)")
+        //print("shouldShowInCenterY = \(shouldShowInCenterY)")
+        //print("shouldShowInBottom = \(shouldShowInBottom)")
+        //print("shouldShowInTop = \(shouldShowInTop)")
+        //print("shouldShowInLeft = \(shouldShowInLeft)")
+        //print("shouldShowInRigth = \(shouldShowInRigth)")
         
         // containerView constraints
         self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.Height, multiplier: 1.0, constant: height))
@@ -362,7 +370,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             
             if shouldShowInRigth{
                 self.view.removeConstraint(centerX)
-                self.view.addConstraint(NSLayoutConstraint(item: self.view, attribute: NSLayoutAttribute.Trailing, relatedBy: NSLayoutRelation.Equal, toItem: containerView, attribute: NSLayoutAttribute.Trailing, multiplier: 1.0, constant: (parentController.view.bounds.size.width - (fromViewPoint!.x + fromViewWidth + 10))))
+                self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Leading, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.Leading, multiplier: 1.0, constant: (parentController.view.bounds.size.width - (width + 10))))
             }else if shouldShowInLeft{
                 self.view.removeConstraint(centerX)
                 //print("shouldShowInLeft = \(shouldShowInLeft)")
@@ -676,22 +684,22 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     
     func updateTableScrollEnabled(){
         if !hiddenControl && !hiddenToolbar{
-            //print("here !! = \(contentSize!.height - CGFloat(96.0)), \(CGFloat(tableData.count * 44))")
-            if contentSize!.height - CGFloat(96.0) >= CGFloat(tableData.count * 44){
+            //print("here !! = \(contentSize!.height - CGFloat(96.0)), \(CGFloat(CGFloat(tableData.count) * tableRowHeight))")
+            if contentSize!.height - CGFloat(96.0) >= CGFloat(CGFloat(tableData.count) * tableRowHeight){
                 tableView?.scrollEnabled = false
             }else{
                 tableView?.scrollEnabled = true
             }
         }else if !hiddenControl || !hiddenToolbar{
-            //print("here ! = \(contentSize!.height - CGFloat(48.0)), \(CGFloat(tableData.count * 44))")
-            if contentSize!.height - CGFloat(48.0) >= CGFloat(tableData.count * 44){
+            //print("here ! = \(contentSize!.height - CGFloat(48.0)), \(CGFloat(CGFloat(tableData.count) * tableRowHeight))")
+            if contentSize!.height - CGFloat(48.0) >= CGFloat(CGFloat(tableData.count) * tableRowHeight){
                 tableView?.scrollEnabled = false
             }else{
                 tableView?.scrollEnabled = true
             }
         }else if hiddenControl && hiddenToolbar{
-            //print("here && = \(contentSize!.height - CGFloat(16.0)), \(CGFloat(tableData.count * 44))")
-            if contentSize!.height - CGFloat(16.0) >= CGFloat(tableData.count * 44){
+            //print("here && = \(contentSize!.height - CGFloat(16.0)), \(CGFloat(CGFloat(tableData.count) * tableRowHeight))")
+            if contentSize!.height - CGFloat(16.0) >= CGFloat(CGFloat(tableData.count) * tableRowHeight){
                 tableView?.scrollEnabled = false
             }else{
                 tableView?.scrollEnabled = true
@@ -719,7 +727,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         if pickerIndexPath == indexPath{
             return self.pickerCellRowHeight
         }
-        return 44
+        return tableRowHeight
     }
     
     func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {

@@ -50,8 +50,8 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     private var containerViewHeightCns: NSLayoutConstraint!
     private var contentView: UIView!
     private var contentSize: CGSize? = nil
-    private var titleLabel: UILabel!
-    private var cancelButton: UIButton!
+    var titleLabel: UILabel!
+    var cancelButton: UIButton!
     var createButton: UIButton!
     private var buttonsContainer: UIView!
     private var toolbar: UIView!
@@ -110,6 +110,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     
     private var inputFields: [AnyObject]?
     var inputFieldHeight: CGFloat = 30.0
+    private var selectedTextView: UITextView?
     
     var hiddenControl: Bool = false{
         didSet{
@@ -671,9 +672,18 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             var contentViewHeight: CGFloat = CGFloat(inputFields!.count) * inputFieldHeight
             var topView: UIView? = nil
             for (index, field) in inputFields!.enumerate(){
-                if let textField: UITextField = field as? UITextField{
-                    textField.delegate = self
-                    textField.returnKeyType = UIReturnKeyType.Done
+                if field.isKindOfClass(UITextField.self) || field.isKindOfClass(UITextView.self){
+                    var textField: UIView!
+                    
+                    if let textfield: UITextField = field as? UITextField{
+                        textfield.delegate = self
+                        textfield.returnKeyType = UIReturnKeyType.Done
+                        textField = textfield
+                    }else if let textView: UITextView = field as? UITextView{
+                        textView.delegate = self
+                        textField = textView
+                    }
+                    
                     textField.translatesAutoresizingMaskIntoConstraints = false
                     contentView.addSubview(textField)
                     
@@ -1119,6 +1129,69 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             self.view.layoutIfNeeded()
         })
     }
+    
+    // MARK: - UITextViewDelegate
+    func textViewShouldBeginEditing(textView: UITextView) -> Bool {
+        selectedTextView = textView
+        
+        let point: CGPoint = self.view.convertPoint(CGPointMake(self.view.frame.size.width / 2, self.view.frame.size.height), toView: textView)
+        print(point)
+        if point.y < 284{
+            let anotherPoint: CGPoint = self.view.convertPoint(CGPointMake(self.view.frame.size.width / 2, self.view.frame.size.height), toView: self.containerView)
+            //print("point = \(point), anotherPoint = \(anotherPoint)")
+            
+            for cns in self.view.constraints{
+                if cns.identifier == "bottomCnsForInputs"{
+                    self.view.removeConstraint(cns)
+                    break
+                }
+            }
+            
+            let bottomSpace: CGFloat = anotherPoint.y - containerView.frame.size.height + (284 - point.y)
+            let bottomCns: NSLayoutConstraint = NSLayoutConstraint(item: self.view, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.Equal, toItem: self.containerView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: bottomSpace)
+            bottomCns.identifier = "bottomCnsForInputs"
+            self.view.needsUpdateConstraints()
+            self.view.addConstraint(bottomCns)
+            UIView.animateWithDuration(0.25, animations: {
+                self.view.layoutIfNeeded()
+            })
+        }
+        
+        let keyboardDoneButtonView = UIToolbar()
+        keyboardDoneButtonView.sizeToFit()
+        
+        // Setup the buttons to be put in the system.
+        var item: UIBarButtonItem = UIBarButtonItem()
+        item = UIBarButtonItem(title: "Done", style: UIBarButtonItemStyle.Plain, target: self, action: #selector(onTextViewDoneTap) )
+        
+        let flexSpace: UIBarButtonItem = UIBarButtonItem(barButtonSystemItem: UIBarButtonSystemItem.FlexibleSpace, target: nil, action: nil)
+        let toolbarButtons = [flexSpace,item]
+        
+        //Put the buttons into the ToolBar and display the tool bar
+        keyboardDoneButtonView.setItems(toolbarButtons, animated: true)
+        textView.inputAccessoryView = keyboardDoneButtonView
+        
+        return true
+    }
+    
+    func textViewDidEndEditing(textView: UITextView) {
+        self.view.needsUpdateConstraints()
+        for cns in self.view.constraints{
+            if cns.identifier == "bottomCnsForInputs"{
+                self.view.removeConstraint(cns)
+                break
+            }
+        }
+        UIView.animateWithDuration(0.25, animations: {
+            self.view.layoutIfNeeded()
+        })
+    }
+    
+    func onTextViewDoneTap(){
+        selectedTextView?.resignFirstResponder()
+    }
+    
+    // MARK: - UIVIewController Methods
 
     override func viewDidLoad() {
         super.viewDidLoad()

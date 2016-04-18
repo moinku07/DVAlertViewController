@@ -111,6 +111,8 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     private var inputFields: [AnyObject]?
     var inputFieldHeight: CGFloat = 30.0
     private var selectedTextView: UITextView?
+    private var selectedTextField: UITextField?
+    private var kbHeight: CGFloat = 0
     
     var hiddenControl: Bool = false{
         didSet{
@@ -376,6 +378,9 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         
         if UIApplication.sharedApplication().userInterfaceLayoutDirection == UIUserInterfaceLayoutDirection.RightToLeft || NSLocale.preferredLanguages()[0].hasPrefix("ar"){
             shouldShowInCenterY = true
+        }
+        
+        if shouldShowInCenterY{
             shouldShowInRigth = false
             shouldShowInLeft = false
         }
@@ -1087,9 +1092,11 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     
     // MARK: - UITextFieldDelegate
     func textFieldShouldBeginEditing(textField: UITextField) -> Bool {
+        selectedTextField = textField
+        
         let point: CGPoint = self.view.convertPoint(CGPointMake(self.view.frame.size.width / 2, self.view.frame.size.height), toView: textField)
-        if point.y < 284{
-            let anotherPoint: CGPoint = self.view.convertPoint(CGPointMake(self.view.frame.size.width / 2, self.view.frame.size.height), toView: self.containerView)
+        if self.view.frame.size.height - point.y < 284{
+            //let anotherPoint: CGPoint = self.view.convertPoint(CGPointMake(self.view.frame.size.width / 2, self.view.frame.size.height), toView: self.containerView)
             //print("point = \(point), anotherPoint = \(anotherPoint)")
             
             for cns in self.view.constraints{
@@ -1099,7 +1106,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
                 }
             }
             
-            let bottomSpace: CGFloat = anotherPoint.y - containerView.frame.size.height + (284 - point.y)
+            let bottomSpace: CGFloat = 284.0
             let bottomCns: NSLayoutConstraint = NSLayoutConstraint(item: self.view, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.Equal, toItem: self.containerView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: bottomSpace)
             bottomCns.identifier = "bottomCnsForInputs"
             self.view.needsUpdateConstraints()
@@ -1108,6 +1115,23 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
                 self.view.layoutIfNeeded()
             })
         }
+        
+        if textField.keyboardType == .NumberPad || textField.keyboardType == .PhonePad || textField.keyboardType == .DecimalPad{
+            let keyboardDoneButtonView = UIToolbar()
+            keyboardDoneButtonView.sizeToFit()
+            
+            // Setup the buttons to be put in the system.
+            var item: UIBarButtonItem = UIBarButtonItem()
+            item = UIBarButtonItem(title: "Done", style: UIBarButtonItemStyle.Plain, target: self, action: #selector(onTextFieldDoneTap) )
+            
+            let flexSpace: UIBarButtonItem = UIBarButtonItem(barButtonSystemItem: UIBarButtonSystemItem.FlexibleSpace, target: nil, action: nil)
+            let toolbarButtons = [flexSpace,item]
+            
+            //Put the buttons into the ToolBar and display the tool bar
+            keyboardDoneButtonView.setItems(toolbarButtons, animated: true)
+            textField.inputAccessoryView = keyboardDoneButtonView
+        }
+        
         return true
     }
     
@@ -1130,13 +1154,19 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         })
     }
     
+    func onTextFieldDoneTap(){
+        selectedTextField?.resignFirstResponder()
+    }
+    
     // MARK: - UITextViewDelegate
     func textViewShouldBeginEditing(textView: UITextView) -> Bool {
         selectedTextView = textView
         
-        let point: CGPoint = self.view.convertPoint(CGPointMake(self.view.frame.size.width / 2, self.view.frame.size.height), toView: textView)
-        print(point)
-        if point.y < 284{
+        var point: CGPoint = self.view.convertPoint(CGPointMake(self.view.frame.size.width / 2, self.view.frame.size.height), toView: textView)
+        point.y = point.y - textView.contentOffset.y
+        //print(point)
+        //print(self.view.frame.size.height - point.y)
+        if self.view.frame.size.height - point.y < 284{
             let anotherPoint: CGPoint = self.view.convertPoint(CGPointMake(self.view.frame.size.width / 2, self.view.frame.size.height), toView: self.containerView)
             //print("point = \(point), anotherPoint = \(anotherPoint)")
             
@@ -1147,7 +1177,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
                 }
             }
             
-            let bottomSpace: CGFloat = anotherPoint.y - containerView.frame.size.height + (284 - point.y)
+            let bottomSpace: CGFloat = 284.0 - (anotherPoint.y - point.y)
             let bottomCns: NSLayoutConstraint = NSLayoutConstraint(item: self.view, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.Equal, toItem: self.containerView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: bottomSpace)
             bottomCns.identifier = "bottomCnsForInputs"
             self.view.needsUpdateConstraints()
@@ -1195,11 +1225,28 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+         NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(keyboardWillShowNotification(_:)), name: UIKeyboardWillShowNotification, object: nil)
+    }
+    
+    override func viewWillDisappear(animated: Bool) {
+        NSNotificationCenter.defaultCenter().removeObserver(self, name: UIKeyboardWillShowNotification, object: nil)
     }
     
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
+    }
+    
+    //MARK: - keyboardWillShowNotification
+    func keyboardWillShowNotification(notification: NSNotification){
+        if let value: NSValue = notification.userInfo?[UIKeyboardFrameEndUserInfoKey] as? NSValue{
+            let rawFrame: CGRect = value.CGRectValue()
+            let keyboardFrame: CGRect = self.view.convertRect(rawFrame, fromView: nil)
+            
+            kbHeight = keyboardFrame.height
+            //print("keyboardHieght: \(keyboardFrame.height)")
+        }
     }
     
     // MARK: - isPhone

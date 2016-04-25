@@ -659,8 +659,10 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             self.addChildViewController(popoverVC)
             popoverVC.didMoveToParentViewController(self)
         }else if popoverView != nil{
-            popoverView!.frame = contentView.bounds
+            popoverView!.translatesAutoresizingMaskIntoConstraints = false
             contentView.addSubview(popoverView!)
+            contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("H:|-0-[popoverView]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["popoverView": popoverView!]))
+            contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:|-0-[popoverView]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["popoverView": popoverView!]))
         }else if tableData.count > 0 || tableDictionaryData.count > 0{
             tableView = UITableView(frame: self.contentView.bounds)
             //tableView.backgroundColor = UIColor.redColor()

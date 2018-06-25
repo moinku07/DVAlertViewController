@@ -7,20 +7,58 @@
 //
 
 import UIKit
+fileprivate func < <T : Comparable>(lhs: T?, rhs: T?) -> Bool {
+  switch (lhs, rhs) {
+  case let (l?, r?):
+    return l < r
+  case (nil, _?):
+    return true
+  default:
+    return false
+  }
+}
+
+fileprivate func > <T : Comparable>(lhs: T?, rhs: T?) -> Bool {
+  switch (lhs, rhs) {
+  case let (l?, r?):
+    return l > r
+  default:
+    return rhs < lhs
+  }
+}
+
+fileprivate func <= <T : Comparable>(lhs: T?, rhs: T?) -> Bool {
+  switch (lhs, rhs) {
+  case let (l?, r?):
+    return l <= r
+  default:
+    return !(rhs < lhs)
+  }
+}
+
+fileprivate func >= <T : Comparable>(lhs: T?, rhs: T?) -> Bool {
+  switch (lhs, rhs) {
+  case let (l?, r?):
+    return l >= r
+  default:
+    return !(lhs < rhs)
+  }
+}
+
 
 enum DVAlertViewControllerStyle: Int{
-    case Popup = 0, ActionSheet
+    case popup = 0, actionSheet, datePicker, picker
 }
 
 enum DVAlertViewControllerCellType: Int {
-    case Default = 0, Date, DateTime, Picker
+    case date = 0, dateTime, picker
 }
 
 class DVAlertViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, UIPickerViewDataSource, UIPickerViewDelegate, UITextFieldDelegate, UITextViewDelegate {
     
-    private var popoverVC: UIViewController!
+    fileprivate var popoverVC: UIViewController!
     var parentController: UIViewController!
-    private var popoverView: UIView?
+    fileprivate var popoverView: UIView?
     var style: DVAlertViewControllerStyle!
     override var title: String?{
         didSet{
@@ -32,71 +70,125 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     var cancelTitle: String = "Cancel"{
         didSet{
             if cancelButton != nil{
-                cancelButton.setTitle(cancelTitle, forState: UIControlState.Normal)
+                cancelButton.setTitle(cancelTitle, for: UIControlState())
             }
         }
     }
-    var doneTitle: String = "Done"{
+    var doneTitle: String = "Okay"{
         didSet{
             if createButton != nil{
-                createButton.setTitle(doneTitle, forState: UIControlState.Normal)
+                createButton.setTitle(doneTitle, for: UIControlState())
             }
         }
     }
-    private var actionSheetBottomConstraint: NSLayoutConstraint!
-    private let actionSheetHeight: CGFloat = 250
+    fileprivate var actionSheetBottomConstraint: NSLayoutConstraint!
+    fileprivate let actionSheetHeight: CGFloat = 250
     
-    private var containerView: UIView!
-    private var containerViewHeightCns: NSLayoutConstraint!
-    private var contentView: UIView!
-    private var contentSize: CGSize? = nil
-    var titleLabel: UILabel!
-    var cancelButton: UIButton!
-    var createButton: UIButton!
-    private var buttonsContainer: UIView!
-    private var toolbar: UIView!
-    private var _bgLayer: CAShapeLayer!
-    private var tableView: UITableView?
-    var tableRowHeight: CGFloat = 44.0
-    var tableData: [String] = [String]()
-    private var selectedIndexPath: NSIndexPath?
-    private var prevSelectedIndexPath: NSIndexPath?
-    var shouldReturnSelectionOnDismiss: Bool = true
-    var selectedIndex: Int?{
+    fileprivate var containerView: UIView!
+    var containerViewHeight: CGFloat = 250{
         didSet{
-            selectedIndexPath = NSIndexPath(forRow: selectedIndex!, inSection: 0)
+            if containerView != nil{
+                self.view.needsUpdateConstraints()
+                containerViewHeightCns.constant = containerViewHeight
+                UIView.animate(withDuration: 0.25, animations: {() -> Void in
+                    self.view.layoutIfNeeded()
+                })
+            }
         }
     }
+    fileprivate var containerViewHeightCns: NSLayoutConstraint!
+    fileprivate var contentView: UIView!
+    var contentViewPadding: CGFloat = 8.0{
+        didSet{
+            if containerView != nil && contentView != nil{
+                for cns in containerView.constraints{
+                    if (cns.firstItem as? NSObject == containerView || cns.secondItem as? NSObject == contentView) || (cns.firstItem as? NSObject == contentView || cns.secondItem as? NSObject == containerView){
+                        if cns.firstAttribute == .top && cns.secondAttribute == .top{
+                            cns.constant = contentViewPadding
+                        }else if cns.firstAttribute == .bottom && cns.secondAttribute == .bottom{
+                            cns.constant = contentViewPadding
+                        }else if cns.firstAttribute == .leading && cns.secondAttribute == .leading{
+                            cns.constant = contentViewPadding
+                        }else if cns.firstAttribute == .trailing && cns.secondAttribute == .trailing{
+                            cns.constant = contentViewPadding
+                        }
+                    }
+                }
+            }
+        }
+        willSet{
+            if containerView != nil{
+                containerViewHeight = containerViewHeight - (2 * (self.contentViewPadding - newValue))
+                /*for cns in self.view.constraints{
+                    if (cns.firstAttribute == .height || cns.secondAttribute == .height) && (cns.firstItem as? NSObject == containerView || cns.secondItem as? NSObject == containerView){
+                        cns.constant = cns.constant - (2 * (self.contentViewPadding - newValue))
+                        break
+                    }
+                }*/
+            }
+        }
+    }
+    fileprivate var contentSize: CGSize? = nil
+    var titleLabel: UILabel!
+    var messageLabel: UILabel?
+    var cancelButton: UIButton!
+    var createButton: UIButton!
+    fileprivate var buttonsContainer: UIView!
+    var toolbar: UIView!
+    fileprivate var _bgLayer: CAShapeLayer!
+    fileprivate var tableView: UITableView?
+    var tableRowHeight: CGFloat = 44.0
+    var tableData: [String] = [String]()
+    var tableCellFont: UIFont = UIFont.systemFont(ofSize: 14)
+    var tableCellSelectedFont: UIFont = UIFont.boldSystemFont(ofSize: 14.0)
+    var tableCellAccessoryView: UIView?
+    var tableCellSelectedAccessoryView: UIView?
+    fileprivate var selectedIndexPath: IndexPath?
+    fileprivate var prevSelectedIndexPath: IndexPath?
+    var shouldReturnSelectionOnDismiss: Bool = true
+    var shouldDismissOnEmptyAreaTap: Bool = true
+    var selectionColor: UIColor? = nil
+    var selectedIndex: Int?{
+        didSet{
+            selectedIndexPath = IndexPath(row: selectedIndex!, section: 0)
+        }
+    }
+    var textAllingment: NSTextAlignment = .left
     
     // For table with dictionary data, picker and datepicker
-    private var pickerIndexPath: NSIndexPath?
-    private var pickerCellRowHeight: CGFloat = 150//216
+    fileprivate var pickerIndexPath: IndexPath?
+    fileprivate var pickerCellRowHeight: CGFloat = 150//216
     
-    var pickerDataValues: [String] = [String]()
-    private var selectedPickerValue: String?
-    
-    var dateFormatter: NSDateFormatter = {
-        let dateFormatter = NSDateFormatter()
+    fileprivate var pickerDataValues: [String] = [String]()
+    var selectedPickerValue: String?
+    var selectedPickerIndex: Int?
+    var selectedDate: Date = Date()
+    fileprivate var datePickerMode: UIDatePickerMode = UIDatePickerMode.date
+    fileprivate var minimumDate: Date?
+    fileprivate var maximumDate: Date?
+    fileprivate var minuteInterval: Int?
+    var dateFormatter: DateFormatter = {
+        let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy/MM/dd"
         return dateFormatter
     }()
-    var dateTimeFormatter: NSDateFormatter = {
-        let dateTimeFormatter = NSDateFormatter()
+    var dateTimeFormatter: DateFormatter = {
+        let dateTimeFormatter = DateFormatter()
         dateTimeFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss"
         return dateTimeFormatter
     }()
-    var tableDictionaryData: NSMutableArray = NSMutableArray()
+    var tableDictionaryData: [[String: Any]] = [[String: Any]]()
     // Example array structure
     /*[
         [
             "title": "Select Date Picker",
             "type": DVAlertViewControllerCellType.Date.rawValue,
-            "value": NSDate()
+            "value": Date()
         ],
         [
             "title": "Select DateTime Picker",
             "type": DVAlertViewControllerCellType.DateTime.rawValue,
-            "value": NSDate()
+            "value": Date()
         ],
         [
             "title": "Select Picker",
@@ -108,23 +200,23 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     
     // End of table with dictionary
     
-    private var inputFields: [AnyObject]?
+    fileprivate var inputFields: [AnyObject]?
     var inputFieldHeight: CGFloat = 30.0
-    private var selectedTextView: UITextView?
-    private var selectedTextField: UITextField?
-    private var kbHeight: CGFloat = 0
+    fileprivate var selectedTextView: UITextView?
+    fileprivate var selectedTextField: UITextField?
+    fileprivate var kbHeight: CGFloat = 0
     
     var hiddenControl: Bool = false{
         didSet{
             if self.hiddenControl{
-                buttonsContainer.hidden = true
+                buttonsContainer.isHidden = true
                 if contentViewBottomCns != nil{
                     containerView.needsUpdateConstraints()
                     containerView.addConstraint(contentViewBottomCns!)
                     self.containerView.layoutIfNeeded()
                 }
             }else{
-                buttonsContainer.hidden = false
+                buttonsContainer.isHidden = false
                 if contentViewBottomCns != nil{
                     containerView.needsUpdateConstraints()
                     containerView.removeConstraint(contentViewBottomCns!)
@@ -138,14 +230,14 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     var hiddenToolbar: Bool = false{
         didSet{
             if self.hiddenToolbar{
-                toolbar.hidden = true
+                toolbar.isHidden = true
                 if contentViewTopCns != nil{
                     containerView.needsUpdateConstraints()
                     containerView.addConstraint(contentViewTopCns!)
                     self.containerView.layoutIfNeeded()
                 }
             }else{
-                toolbar.hidden = false
+                toolbar.isHidden = false
                 if contentViewTopCns != nil{
                     containerView.needsUpdateConstraints()
                     containerView.removeConstraint(contentViewTopCns!)
@@ -170,37 +262,60 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         }
     }
     
-    var contentViewTopCns: NSLayoutConstraint?
-    var contentViewBottomCns: NSLayoutConstraint?
+    fileprivate var contentViewTopCns: NSLayoutConstraint?
+    fileprivate var contentViewBottomCns: NSLayoutConstraint?
     
-    private var fromView: UIView?
-    private var fromViewPoint: CGPoint?
+    fileprivate var fromView: UIView?
+    fileprivate var fromViewPoint: CGPoint?
     
-    private var shouldShowInCenterY: Bool = true
-    private var shouldShowInTop: Bool = false
-    private var shouldShowInBottom: Bool = false
-    private var shouldShowInLeft: Bool = false
-    private var shouldShowInRigth: Bool = false
-    private var fromViewHeight: CGFloat = 0
-    private var fromViewWidth: CGFloat = 0
+    fileprivate var shouldShowInCenterY: Bool = true
+    fileprivate var shouldShowInTop: Bool = false
+    fileprivate var shouldShowInBottom: Bool = false
+    fileprivate var shouldShowInLeft: Bool = false
+    fileprivate var shouldShowInRigth: Bool = false
+    fileprivate var fromViewHeight: CGFloat = 0
+    fileprivate var fromViewWidth: CGFloat = 0
     
     var cancelBlock : (() -> Void)?
-    var doneBlock : ((index: Int?) -> Void)?
+    var doneBlock : ((_ index: Int?) -> Void)?
+    
+    var statusBarStyle: UIStatusBarStyle?{
+        didSet{
+            self.setNeedsStatusBarAppearanceUpdate()
+        }
+    }
+    
+    override var preferredStatusBarStyle : UIStatusBarStyle {
+        if statusBarStyle != nil{
+            return statusBarStyle!
+        }
+        return parentController.preferredStatusBarStyle
+    }
+    
+    var statusBarHidden: Bool = false{
+        didSet{
+            self.setNeedsStatusBarAppearanceUpdate()
+        }
+    }
+    
+    override var prefersStatusBarHidden: Bool{
+        return statusBarHidden
+    }
     
     convenience init(parentController: UIViewController, popoverView: UIView, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil){
         self.init()
         
-        self.modalPresentationStyle = UIModalPresentationStyle.OverCurrentContext
-        self.modalTransitionStyle = UIModalTransitionStyle.CrossDissolve
+        self.modalPresentationStyle = UIModalPresentationStyle.overCurrentContext
+        self.modalTransitionStyle = UIModalTransitionStyle.crossDissolve
         
         self.parentController = parentController
         self.popoverVC = nil
         self.popoverView = popoverView
         self.style = style
-        self.contentSize = contentSize != nil ? contentSize : self.isPad() ? CGSizeMake(400, 300) : CGSizeMake(280, 220)
+        self.contentSize = contentSize != nil ? contentSize : self.isPad() ? CGSize(width: 400, height: 300) : CGSize(width: 280, height: 220)
         
-        self.view.userInteractionEnabled = true
-        self.view.multipleTouchEnabled = true
+        self.view.isUserInteractionEnabled = true
+        self.view.isMultipleTouchEnabled = true
         
         self.createPopupContents()
     }
@@ -208,23 +323,23 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     convenience init(parentController: UIViewController, popoverVC: UIViewController?, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil){
         self.init()
         
-        self.modalPresentationStyle = UIModalPresentationStyle.OverCurrentContext
-        self.modalTransitionStyle = UIModalTransitionStyle.CrossDissolve
+        self.modalPresentationStyle = UIModalPresentationStyle.overCurrentContext
+        self.modalTransitionStyle = UIModalTransitionStyle.crossDissolve
         
         self.parentController = parentController
         self.popoverVC = popoverVC
         self.style = style
-        self.contentSize = contentSize != nil ? contentSize : self.isPad() ? CGSizeMake(400, 300) : CGSizeMake(280, 220)
+        self.contentSize = contentSize != nil ? contentSize : self.isPad() ? CGSize(width: 400, height: 300) : CGSize(width: 280, height: 220)
         
-        self.view.userInteractionEnabled = true
-        self.view.multipleTouchEnabled = true
+        self.view.isUserInteractionEnabled = true
+        self.view.isMultipleTouchEnabled = true
         
         self.createPopupContents()
     }
     
-    convenience init(inputFields: [AnyObject], popoverVC: UIViewController, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil) {
+    convenience init(inputFields: [AnyObject], parentController: UIViewController, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil) {
         
-        self.init(parentController: popoverVC, popoverVC: nil, style: style, contentSize: contentSize)
+        self.init(parentController: parentController, popoverVC: nil, style: style, contentSize: contentSize)
         
         self.inputFields = inputFields
     }
@@ -232,17 +347,17 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     convenience init(parentController: UIViewController, popoverVC: UIViewController?, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil, fromView: UIView){
         self.init()
         
-        self.modalPresentationStyle = UIModalPresentationStyle.OverCurrentContext
-        self.modalTransitionStyle = UIModalTransitionStyle.CrossDissolve
+        self.modalPresentationStyle = UIModalPresentationStyle.overCurrentContext
+        self.modalTransitionStyle = UIModalTransitionStyle.crossDissolve
         
         self.parentController = parentController
         self.popoverVC = popoverVC
         self.style = style
-        self.contentSize = contentSize != nil ? contentSize : self.isPad() ? CGSizeMake(400, 300) : CGSizeMake(280, 220)
+        self.contentSize = contentSize != nil ? contentSize : self.isPad() ? CGSize(width: 400, height: 300) : CGSize(width: 280, height: 220)
         self.fromView = fromView
         
-        self.view.userInteractionEnabled = true
-        self.view.multipleTouchEnabled = true
+        self.view.isUserInteractionEnabled = true
+        self.view.isMultipleTouchEnabled = true
         
         self.createPopupContents()
     }
@@ -250,19 +365,45 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     convenience init(parentController: UIViewController, popoverVC: UIViewController?, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil, fromPoint: CGPoint){
         self.init()
         
-        self.modalPresentationStyle = UIModalPresentationStyle.OverCurrentContext
-        self.modalTransitionStyle = UIModalTransitionStyle.CrossDissolve
+        self.modalPresentationStyle = UIModalPresentationStyle.overCurrentContext
+        self.modalTransitionStyle = UIModalTransitionStyle.crossDissolve
         
         self.parentController = parentController
         self.popoverVC = popoverVC
         self.style = style
-        self.contentSize = contentSize != nil ? contentSize : self.isPad() ? CGSizeMake(400, 300) : CGSizeMake(280, 220)
+        self.contentSize = contentSize != nil ? contentSize : self.isPad() ? CGSize(width: 400, height: 300) : CGSize(width: 280, height: 220)
         self.fromViewPoint = fromPoint
-        //print(fromViewPoint)
-        self.view.userInteractionEnabled = true
-        self.view.multipleTouchEnabled = true
+        //DVPrint(fromViewPoint)
+        self.view.isUserInteractionEnabled = true
+        self.view.isMultipleTouchEnabled = true
         
         self.createPopupContents()
+    }
+    
+    convenience init(title: String, message: String, parentController: UIViewController, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil){
+        
+        let messageLabel = UILabel()
+        messageLabel.numberOfLines = 0
+        messageLabel.textAlignment = .center
+        messageLabel.font = UIFont.systemFont(ofSize: 15.0)
+        messageLabel.textColor = UIColor.black
+        messageLabel.text = message
+        
+        let messageLabelHeight: CGFloat = messageLabel.sizeThatFits(CGSize(width: (280 - 16), height: CGFloat(MAXFLOAT))).height
+        
+        let newContentSize: CGSize = contentSize != nil ?  contentSize! : CGSize(width: 280, height: 100 + messageLabelHeight)
+        
+        self.init(parentController: parentController, popoverView: messageLabel, style: style, contentSize: newContentSize)
+     
+        self.title = title
+        self.messageLabel = messageLabel
+        
+        for cns in containerView.constraints{
+            if (cns.firstItem as? NSObject == toolbar && cns.secondItem as? NSObject == contentView) || (cns.firstItem as? NSObject == contentView && cns.secondItem as? NSObject == toolbar){
+                cns.constant = 0
+                break
+            }
+        }
     }
     
     convenience init(title: String, parentController: UIViewController, popoverVC: UIViewController, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil, fromView: UIView){
@@ -272,16 +413,22 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         self.title = title
     }
     
-    convenience init(data: [String], parentController: UIViewController, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil, fromView: UIView) {
-        
-        self.init(parentController: parentController, popoverVC: nil, style: style, contentSize: contentSize, fromView: fromView)
+    convenience init(data: [String], parentController: UIViewController, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil, fromView: UIView? = nil) {
+        if fromView != nil{
+            self.init(parentController: parentController, popoverVC: nil, style: style, contentSize: contentSize, fromView: fromView!)
+        }else{
+            self.init(parentController: parentController, popoverVC: nil, style: style, contentSize: contentSize)
+        }
         
         self.tableData = data
     }
     
-    convenience init(data: NSMutableArray, parentController: UIViewController, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil, fromView: UIView) {
-        
-        self.init(parentController: parentController, popoverVC: nil, style: style, contentSize: contentSize, fromView: fromView)
+    convenience init(data: [[String: Any]], parentController: UIViewController, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil, fromView: UIView? = nil) {
+        if fromView != nil{
+            self.init(parentController: parentController, popoverVC: nil, style: style, contentSize: contentSize, fromView: fromView!)
+        }else{
+            self.init(parentController: parentController, popoverVC: nil, style: style, contentSize: contentSize)
+        }
         
         self.tableDictionaryData = data
     }
@@ -293,9 +440,12 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         self.tableData = data
     }
     
-    convenience init(data: NSMutableArray, parentController: UIViewController, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil, fromPoint: CGPoint) {
-        
-        self.init(parentController: parentController, popoverVC: nil, style: style, contentSize: contentSize, fromPoint: fromPoint)
+    convenience init(data: [[String: Any]], parentController: UIViewController, style: DVAlertViewControllerStyle, contentSize: CGSize? = nil, fromPoint: CGPoint? = nil) {
+        if fromPoint != nil{
+            self.init(parentController: parentController, popoverVC: nil, style: style, contentSize: contentSize, fromPoint: fromPoint!)
+        }else{
+            self.init(parentController: parentController, popoverVC: nil, style: style, contentSize: contentSize)
+        }
         
         self.tableDictionaryData = data
     }
@@ -313,20 +463,40 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         
         self.inputFields = inputFields
     }
+    // datepicker
+    convenience init(title: String, selectedDate: Date?, minimumDate: Date?, maximumDate: Date?, minuteInterval: Int? = nil, datePickerMode: UIDatePickerMode?, parentController: UIViewController){
+        self.init(parentController: parentController, popoverVC: nil, style: DVAlertViewControllerStyle.datePicker, contentSize: nil)
+        
+        self.title = title
+        if selectedDate != nil{
+            self.selectedDate = selectedDate!
+        }
+        if datePickerMode != nil{
+            self.datePickerMode = datePickerMode!
+        }
+        self.minimumDate = minimumDate
+        self.maximumDate = maximumDate
+        self.minuteInterval = minuteInterval
+    }
+    // picker
+    convenience init(title: String, pickerData: [String], selectedIndex: Int?, parentController: UIViewController){
+        self.init(parentController: parentController, popoverVC: nil, style: DVAlertViewControllerStyle.picker, contentSize: nil)
+        
+        self.title = title
+        self.pickerDataValues = pickerData
+        self.selectedPickerIndex = selectedIndex
+        if selectedIndex == nil{
+            self.selectedPickerIndex = 0
+        }
+        if selectedIndex == nil{
+            selectedPickerValue = pickerData[self.selectedPickerIndex!]
+        }
+    }
     
     func createPopupContents(){
-        self.view.backgroundColor = UIColor.blackColor().colorWithAlphaComponent(0.2)
+        self.view.backgroundColor = UIColor.black.withAlphaComponent(0.2)
         
-        // create container view
-        containerView = UIView()
-        containerView.backgroundColor = UIColor.whiteColor()
-        if self.style == DVAlertViewControllerStyle.Popup{
-            containerView.layer.cornerRadius = 4
-        }
-        containerView.translatesAutoresizingMaskIntoConstraints = false
-        self.view.addSubview(containerView)
-        
-        var height: CGFloat = self.contentSize != nil ? self.contentSize!.height + 16 : self.contentSize!.height + 99
+        var height: CGFloat = self.contentSize != nil ? self.contentSize!.height + (contentViewPadding * 2) : actionSheetHeight + (contentViewPadding * 2)
         
         if (fromViewPoint != nil || fromView != nil) && height >= parentController.view.bounds.size.height - 110{
            height = parentController.view.bounds.size.height - 150
@@ -337,16 +507,18 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         if width >= parentController.view.bounds.size.width{
             width = parentController.view.bounds.size.width - 20
         }
-        if self.style == DVAlertViewControllerStyle.ActionSheet{
-            height = actionSheetHeight
-            width = UIScreen.mainScreen().bounds.width
+        if self.style == DVAlertViewControllerStyle.actionSheet || self.style == DVAlertViewControllerStyle.datePicker || self.style == DVAlertViewControllerStyle.picker{
+            height = self.contentSize != nil ? self.contentSize!.height + (contentViewPadding * 2) : actionSheetHeight + (contentViewPadding * 2)
+            width = UIScreen.main.bounds.width
         }
-        contentSize = CGSizeMake(width, height)
-        //print("fromViewPoint before = \(fromViewPoint)")
+        
+        containerViewHeight = height
+        contentSize = CGSize(width: width, height: height)
+        //DVPrint("fromViewPoint before = \(fromViewPoint)")
         if let pvc: UIViewController = fromView?.parentViewController{
-            fromViewPoint = pvc.view.convertPoint(CGPointMake(0, 0), fromView: fromView)
+            fromViewPoint = pvc.view.convert(CGPoint(x: 0, y: 0), from: fromView)
         }
-        //print("fromViewPoint after = \(fromViewPoint)")
+        //DVPrint("fromViewPoint after = \(fromViewPoint)")
         
         if fromViewPoint != nil{
             if fromView != nil{
@@ -376,7 +548,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             }
         }
         
-        if UIApplication.sharedApplication().userInterfaceLayoutDirection == UIUserInterfaceLayoutDirection.RightToLeft || NSLocale.preferredLanguages()[0].hasPrefix("ar"){
+        if UIApplication.shared.userInterfaceLayoutDirection == UIUserInterfaceLayoutDirection.rightToLeft || Locale.preferredLanguages[0].hasPrefix("ar"){
             shouldShowInCenterY = true
         }
         
@@ -385,54 +557,63 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             shouldShowInLeft = false
         }
         
-        //print("fromViewPoint after = \(fromViewPoint)")
-        //print("shouldShowInCenterY = \(shouldShowInCenterY)")
-        //print("shouldShowInBottom = \(shouldShowInBottom)")
-        //print("shouldShowInTop = \(shouldShowInTop)")
-        //print("shouldShowInLeft = \(shouldShowInLeft)")
-        //print("shouldShowInRigth = \(shouldShowInRigth)")
+        //DVPrint("fromViewPoint after = \(fromViewPoint)")
+        //DVPrint("shouldShowInCenterY = \(shouldShowInCenterY)")
+        //DVPrint("shouldShowInBottom = \(shouldShowInBottom)")
+        //DVPrint("shouldShowInTop = \(shouldShowInTop)")
+        //DVPrint("shouldShowInLeft = \(shouldShowInLeft)")
+        //DVPrint("shouldShowInRigth = \(shouldShowInRigth)")
+        
+        // create container view
+        containerView = UIView()
+        containerView.backgroundColor = UIColor.white
+        if self.style == DVAlertViewControllerStyle.popup{
+            containerView.layer.cornerRadius = 4
+        }
+        containerView.translatesAutoresizingMaskIntoConstraints = false
+        self.view.addSubview(containerView)
         
         // containerView constraints
-        containerViewHeightCns = NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.Height, multiplier: 1.0, constant: height)
+        containerViewHeightCns = NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.height, relatedBy: NSLayoutRelation.equal, toItem: nil, attribute: NSLayoutAttribute.height, multiplier: 1.0, constant: height)
         self.view.addConstraint(containerViewHeightCns)
-        let centerX: NSLayoutConstraint = NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.CenterX, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.CenterX, multiplier: 1.0, constant: 0)
+        let centerX: NSLayoutConstraint = NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.centerX, relatedBy: NSLayoutRelation.equal, toItem: self.view, attribute: NSLayoutAttribute.centerX, multiplier: 1.0, constant: 0)
         self.view.addConstraint(centerX)
         
-        if self.style == DVAlertViewControllerStyle.Popup{
-            self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.Width, multiplier: 1.0, constant: width))
+        if self.style == DVAlertViewControllerStyle.popup{
+            self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.width, relatedBy: NSLayoutRelation.equal, toItem: nil, attribute: NSLayoutAttribute.width, multiplier: 1.0, constant: width))
             if shouldShowInCenterY{
-                let centerYCns: NSLayoutConstraint = NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.CenterY, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.CenterY, multiplier: 1.0, constant: 0)
-                centerYCns.priority = 750
+                let centerYCns: NSLayoutConstraint = NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.centerY, relatedBy: NSLayoutRelation.equal, toItem: self.view, attribute: NSLayoutAttribute.centerY, multiplier: 1.0, constant: 0)
+                centerYCns.priority = UILayoutPriority(rawValue: 750)
                 self.view.addConstraint(centerYCns)
             }else if shouldShowInBottom{
-                //print("bottom")
-                self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Top, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.Top, multiplier: 1.0, constant: (fromViewPoint!.y + fromViewHeight + 10)))
+                //DVPrint("bottom")
+                self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.top, relatedBy: NSLayoutRelation.equal, toItem: self.view, attribute: NSLayoutAttribute.top, multiplier: 1.0, constant: (fromViewPoint!.y + fromViewHeight + 10)))
                 
             }else if shouldShowInTop{
-                //print("top")
-                self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Top, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.Top, multiplier: 1.0, constant: (fromViewPoint!.y - (height + 5))))
+                //DVPrint("top")
+                self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.top, relatedBy: NSLayoutRelation.equal, toItem: self.view, attribute: NSLayoutAttribute.top, multiplier: 1.0, constant: (fromViewPoint!.y - (height + 5))))
             }
             
             if shouldShowInRigth{
                 self.view.removeConstraint(centerX)
-                self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Leading, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.Leading, multiplier: 1.0, constant: (parentController.view.bounds.size.width - (width + 10))))
+                self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.leading, relatedBy: NSLayoutRelation.equal, toItem: self.view, attribute: NSLayoutAttribute.leading, multiplier: 1.0, constant: (parentController.view.bounds.size.width - (width + 10))))
             }else if shouldShowInLeft{
                 self.view.removeConstraint(centerX)
-                //print("shouldShowInLeft = \(shouldShowInLeft)")
+                //DVPrint("shouldShowInLeft = \(shouldShowInLeft)")
                 
                 var constant: CGFloat = fromViewPoint!.x - 10
                 if fromView != nil && fromViewPoint!.x < 15{
                     constant = fromViewPoint!.x + (fromView!.frame.size.width / 2) - 10
                 }
                 
-                //print("constant = \(constant)")
-                self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Leading, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.Leading, multiplier: 1.0, constant: constant))
+                //DVPrint("constant = \(constant)")
+                self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.leading, relatedBy: NSLayoutRelation.equal, toItem: self.view, attribute: NSLayoutAttribute.leading, multiplier: 1.0, constant: constant))
             }
-        }else if self.style == DVAlertViewControllerStyle.ActionSheet{
-            self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Leading, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.Leading, multiplier: 1.0, constant: 0))
-            self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Trailing, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.Trailing, multiplier: 1.0, constant: 0))
+        }else if self.style == DVAlertViewControllerStyle.actionSheet || self.style == DVAlertViewControllerStyle.datePicker || self.style == DVAlertViewControllerStyle.picker{
+            self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.leading, relatedBy: NSLayoutRelation.equal, toItem: self.view, attribute: NSLayoutAttribute.leading, multiplier: 1.0, constant: 0))
+            self.view.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.trailing, relatedBy: NSLayoutRelation.equal, toItem: self.view, attribute: NSLayoutAttribute.trailing, multiplier: 1.0, constant: 0))
             
-            actionSheetBottomConstraint = NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.Equal, toItem: self.view, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: height)
+            actionSheetBottomConstraint = NSLayoutConstraint(item: self.view, attribute: NSLayoutAttribute.bottom, relatedBy: NSLayoutRelation.equal, toItem: containerView, attribute: NSLayoutAttribute.bottom, multiplier: 1.0, constant: -height)
             self.view.addConstraint(actionSheetBottomConstraint)
         }
         
@@ -444,167 +625,166 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         containerView.addSubview(toolbar)
         
         // toolbar constraints
-        containerView.addConstraint(NSLayoutConstraint(item: toolbar, attribute: NSLayoutAttribute.Top, relatedBy: NSLayoutRelation.Equal, toItem: containerView, attribute: NSLayoutAttribute.Top, multiplier: 1.0, constant: 0))
-        containerView.addConstraint(NSLayoutConstraint(item: toolbar, attribute: NSLayoutAttribute.Leading, relatedBy: NSLayoutRelation.Equal, toItem: containerView, attribute: NSLayoutAttribute.Leading, multiplier: 1.0, constant: 0))
-        containerView.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Trailing, relatedBy: NSLayoutRelation.Equal, toItem: toolbar, attribute: NSLayoutAttribute.Trailing, multiplier: 1.0, constant: 0))
-        containerView.addConstraint(NSLayoutConstraint(item: toolbar, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.Height, multiplier: 1.0, constant: 40))
+        containerView.addConstraint(NSLayoutConstraint(item: toolbar, attribute: NSLayoutAttribute.top, relatedBy: NSLayoutRelation.equal, toItem: containerView, attribute: NSLayoutAttribute.top, multiplier: 1.0, constant: 0))
+        containerView.addConstraint(NSLayoutConstraint(item: toolbar, attribute: NSLayoutAttribute.leading, relatedBy: NSLayoutRelation.equal, toItem: containerView, attribute: NSLayoutAttribute.leading, multiplier: 1.0, constant: 0))
+        containerView.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.trailing, relatedBy: NSLayoutRelation.equal, toItem: toolbar, attribute: NSLayoutAttribute.trailing, multiplier: 1.0, constant: 0))
+        containerView.addConstraint(NSLayoutConstraint(item: toolbar, attribute: NSLayoutAttribute.height, relatedBy: NSLayoutRelation.equal, toItem: nil, attribute: NSLayoutAttribute.height, multiplier: 1.0, constant: 44))
         
         // titleLabel
         titleLabel = UILabel()
         //titleLabel.backgroundColor = UIColor.grayColor()
         titleLabel.text = self.title
-        titleLabel.textAlignment = NSTextAlignment.Center
-        titleLabel.font = UIFont.boldSystemFontOfSize(18)
+        titleLabel.textAlignment = NSTextAlignment.center
+        titleLabel.font = UIFont.boldSystemFont(ofSize: 18)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         toolbar.addSubview(titleLabel)
         
         // titleLable constraints
-        toolbar.addConstraint(NSLayoutConstraint(item: titleLabel, attribute: NSLayoutAttribute.CenterX, relatedBy: NSLayoutRelation.Equal, toItem: toolbar, attribute: NSLayoutAttribute.CenterX, multiplier: 1.0, constant: 0))
-        toolbar.addConstraint(NSLayoutConstraint(item: titleLabel, attribute: NSLayoutAttribute.CenterY, relatedBy: NSLayoutRelation.Equal, toItem: toolbar, attribute: NSLayoutAttribute.CenterY, multiplier: 1.0, constant: 0))
+        toolbar.addConstraint(NSLayoutConstraint(item: titleLabel, attribute: NSLayoutAttribute.centerX, relatedBy: NSLayoutRelation.equal, toItem: toolbar, attribute: NSLayoutAttribute.centerX, multiplier: 1.0, constant: 0))
+        toolbar.addConstraint(NSLayoutConstraint(item: titleLabel, attribute: NSLayoutAttribute.centerY, relatedBy: NSLayoutRelation.equal, toItem: toolbar, attribute: NSLayoutAttribute.centerY, multiplier: 1.0, constant: 0))
         
         // bottom buttons container
         buttonsContainer = UIView()
         let borderView: UIView = UIView()
         
-        if self.style == DVAlertViewControllerStyle.Popup && self.isPhone(){
+        if self.style == DVAlertViewControllerStyle.popup{
             //buttonsContainer.backgroundColor = UIColor.grayColor()
             buttonsContainer.translatesAutoresizingMaskIntoConstraints = false
             
             containerView.addSubview(buttonsContainer)
             
-            containerView.addConstraint(NSLayoutConstraint(item: buttonsContainer, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.Height, multiplier: 1.0, constant: 41))
-            containerView.addConstraint(NSLayoutConstraint(item: buttonsContainer, attribute: NSLayoutAttribute.Leading, relatedBy: NSLayoutRelation.Equal, toItem: containerView, attribute: NSLayoutAttribute.Leading, multiplier: 1.0, constant: 0))
-            containerView.addConstraint(NSLayoutConstraint(item: buttonsContainer, attribute: NSLayoutAttribute.Trailing, relatedBy: NSLayoutRelation.Equal, toItem: containerView, attribute: NSLayoutAttribute.Trailing, multiplier: 1.0, constant: 0))
-            containerView.addConstraint(NSLayoutConstraint(item: buttonsContainer, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.Equal, toItem: containerView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 0))
+            containerView.addConstraint(NSLayoutConstraint(item: buttonsContainer, attribute: NSLayoutAttribute.height, relatedBy: NSLayoutRelation.equal, toItem: nil, attribute: NSLayoutAttribute.height, multiplier: 1.0, constant: 41))
+            containerView.addConstraint(NSLayoutConstraint(item: buttonsContainer, attribute: NSLayoutAttribute.leading, relatedBy: NSLayoutRelation.equal, toItem: containerView, attribute: NSLayoutAttribute.leading, multiplier: 1.0, constant: 0))
+            containerView.addConstraint(NSLayoutConstraint(item: buttonsContainer, attribute: NSLayoutAttribute.trailing, relatedBy: NSLayoutRelation.equal, toItem: containerView, attribute: NSLayoutAttribute.trailing, multiplier: 1.0, constant: 0))
+            containerView.addConstraint(NSLayoutConstraint(item: buttonsContainer, attribute: NSLayoutAttribute.bottom, relatedBy: NSLayoutRelation.equal, toItem: containerView, attribute: NSLayoutAttribute.bottom, multiplier: 1.0, constant: 0))
             
             borderView.backgroundColor = UIColor(red: 200/255, green: 199/255, blue: 204/255, alpha: 1)
             borderView.translatesAutoresizingMaskIntoConstraints = false
             
             buttonsContainer.addSubview(borderView)
             
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: borderView, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.Height, multiplier: 1.0, constant: 1))
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: borderView, attribute: NSLayoutAttribute.Leading, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Leading, multiplier: 1.0, constant: 0))
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: borderView, attribute: NSLayoutAttribute.Trailing, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Trailing, multiplier: 1.0, constant: 0))
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: borderView, attribute: NSLayoutAttribute.Top, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Top, multiplier: 1.0, constant: 0))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: borderView, attribute: NSLayoutAttribute.height, relatedBy: NSLayoutRelation.equal, toItem: nil, attribute: NSLayoutAttribute.height, multiplier: 1.0, constant: 1))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: borderView, attribute: NSLayoutAttribute.leading, relatedBy: NSLayoutRelation.equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.leading, multiplier: 1.0, constant: 0))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: borderView, attribute: NSLayoutAttribute.trailing, relatedBy: NSLayoutRelation.equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.trailing, multiplier: 1.0, constant: 0))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: borderView, attribute: NSLayoutAttribute.top, relatedBy: NSLayoutRelation.equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.top, multiplier: 1.0, constant: 0))
         }
         
         cancelButton = UIButton()
         //cancelButton.backgroundColor = UIColor.redColor()
-        cancelButton.setTitle(cancelTitle, forState: UIControlState.Normal)
-        cancelButton.setTitleColor(UIColor(rgba: "616161"), forState: UIControlState.Normal)
-        cancelButton.titleLabel?.font = UIFont.systemFontOfSize(16)
+        cancelButton.setTitle(cancelTitle, for: UIControlState())
+        cancelButton.setTitleColor(UIColor(hex: "616161"), for: UIControlState())
+        cancelButton.titleLabel?.font = UIFont.systemFont(ofSize: 16)
         cancelButton.translatesAutoresizingMaskIntoConstraints = false
-        if self.style == DVAlertViewControllerStyle.Popup && self.isPhone(){
-            cancelButton.setBackgroundImage(UIColor.imageWithColor(UIColor(rgba: "dfdfe2"), size: nil), forState: UIControlState.Highlighted)
+        if self.style == DVAlertViewControllerStyle.popup{
+            cancelButton.setBackgroundImage(UIColor.imageWithColor(UIColor(hex: "dfdfe2"), size: nil), for: UIControlState.highlighted)
             buttonsContainer.addSubview(cancelButton)
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 260 * Int64(NSEC_PER_MSEC)), dispatch_get_main_queue()){
-                let bottomLeftBorder: UIBezierPath = UIBezierPath(roundedRect: self.cancelButton.bounds, byRoundingCorners: UIRectCorner.BottomLeft, cornerRadii: CGSizeMake(4,4))
+            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + Double(260 * Int64(NSEC_PER_MSEC)) / Double(NSEC_PER_SEC)){
+                let bottomLeftBorder: UIBezierPath = UIBezierPath(roundedRect: self.cancelButton.bounds, byRoundingCorners: UIRectCorner.bottomLeft, cornerRadii: CGSize(width: 4,height: 4))
                 let cancelButtonMask: CAShapeLayer = CAShapeLayer()
                 cancelButtonMask.frame = self.cancelButton.bounds
-                cancelButtonMask.path = bottomLeftBorder.CGPath
+                cancelButtonMask.path = bottomLeftBorder.cgPath
                 self.cancelButton.layer.mask = cancelButtonMask
             }
-        }else if self.style == DVAlertViewControllerStyle.ActionSheet || self.isPad(){
-            cancelButton.setTitleColor(UIColor(rgba: "8a8a8a"), forState: UIControlState.Highlighted)
-            cancelButton.contentHorizontalAlignment = UIControlContentHorizontalAlignment.Left
+        }else if self.style == DVAlertViewControllerStyle.actionSheet || self.style == DVAlertViewControllerStyle.datePicker || self.style == DVAlertViewControllerStyle.picker{
+            cancelButton.setTitleColor(UIColor(hex: "8a8a8a"), for: UIControlState.highlighted)
+            cancelButton.contentHorizontalAlignment = UIControlContentHorizontalAlignment.left
             toolbar.addSubview(cancelButton)
         }
-        cancelButton.addTarget(self, action: "cancelTap:", forControlEvents: .TouchUpInside)
+        cancelButton.addTarget(self, action: #selector(DVAlertViewController.cancelTap(_:)), for: .touchUpInside)
         
         createButton = UIButton()
         //createButton.backgroundColor = UIColor.redColor()
-        createButton.setTitle(doneTitle, forState: UIControlState.Normal)
-        createButton.setTitleColor(UIColor(rgba: "34bdf5"), forState: UIControlState.Normal)
-        createButton.titleLabel?.font = UIFont.boldSystemFontOfSize(16)
+        createButton.setTitle(doneTitle, for: UIControlState())
+        createButton.setTitleColor(UIColor(hex: "34bdf5"), for: UIControlState())
+        createButton.titleLabel?.font = UIFont.boldSystemFont(ofSize: 16)
         createButton.translatesAutoresizingMaskIntoConstraints = false
-        if self.style == DVAlertViewControllerStyle.Popup && self.isPhone(){
-            createButton.setBackgroundImage(UIColor.imageWithColor(UIColor(rgba: "dfdfe2"), size: nil), forState: UIControlState.Highlighted)
+        if self.style == DVAlertViewControllerStyle.popup{
+            createButton.setBackgroundImage(UIColor.imageWithColor(UIColor(hex: "dfdfe2"), size: nil), for: UIControlState.highlighted)
             buttonsContainer.addSubview(createButton)
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 260 * Int64(NSEC_PER_MSEC)), dispatch_get_main_queue()){
-                let bottomRightBorder: UIBezierPath = UIBezierPath(roundedRect: self.createButton.bounds, byRoundingCorners: UIRectCorner.BottomRight, cornerRadii: CGSizeMake(4,4))
+            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + Double(260 * Int64(NSEC_PER_MSEC)) / Double(NSEC_PER_SEC)){
+                let bottomRightBorder: UIBezierPath = UIBezierPath(roundedRect: self.createButton.bounds, byRoundingCorners: UIRectCorner.bottomRight, cornerRadii: CGSize(width: 4,height: 4))
                 let createButtonMask: CAShapeLayer = CAShapeLayer()
                 createButtonMask.frame = self.createButton.bounds
-                createButtonMask.path = bottomRightBorder.CGPath
+                createButtonMask.path = bottomRightBorder.cgPath
                 self.createButton.layer.mask = createButtonMask
             }
-        }else if self.style == DVAlertViewControllerStyle.ActionSheet || self.isPad(){
-            createButton.setTitleColor(UIColor(rgba: "6bc8ee"), forState: UIControlState.Highlighted)
-            createButton.contentHorizontalAlignment = UIControlContentHorizontalAlignment.Right
+        }else if self.style == DVAlertViewControllerStyle.actionSheet || self.style == DVAlertViewControllerStyle.datePicker || self.style == DVAlertViewControllerStyle.picker{
+            createButton.setTitleColor(UIColor(hex: "6bc8ee"), for: UIControlState.highlighted)
+            createButton.contentHorizontalAlignment = UIControlContentHorizontalAlignment.right
             toolbar.addSubview(createButton)
         }
-        createButton.addTarget(self, action: "createTap:", forControlEvents: .TouchUpInside)
+        createButton.addTarget(self, action: #selector(DVAlertViewController.createTap(_:)), for: .touchUpInside)
         
-        if self.style == DVAlertViewControllerStyle.Popup && self.isPhone(){
+        if self.style == DVAlertViewControllerStyle.popup{
             let buttonSeperatorBorder: UIView = UIView()
             buttonSeperatorBorder.backgroundColor = UIColor(red: 200/255, green: 199/255, blue: 204/255, alpha: 1)
             buttonSeperatorBorder.translatesAutoresizingMaskIntoConstraints = false
             buttonsContainer.addSubview(buttonSeperatorBorder)
             
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.GreaterThanOrEqual, toItem: nil, attribute: NSLayoutAttribute.Height, multiplier: 1.0, constant: 40))
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Width, multiplier: 0.5, constant: -0.5))
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.Leading, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Leading, multiplier: 1.0, constant: 0))
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.Top, relatedBy: NSLayoutRelation.Equal, toItem: borderView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 0))
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 0))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.height, relatedBy: NSLayoutRelation.greaterThanOrEqual, toItem: nil, attribute: NSLayoutAttribute.height, multiplier: 1.0, constant: 40))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.width, relatedBy: NSLayoutRelation.equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.width, multiplier: 0.5, constant: -0.5))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.leading, relatedBy: NSLayoutRelation.equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.leading, multiplier: 1.0, constant: 0))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.top, relatedBy: NSLayoutRelation.equal, toItem: borderView, attribute: NSLayoutAttribute.bottom, multiplier: 1.0, constant: 0))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.bottom, relatedBy: NSLayoutRelation.equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.bottom, multiplier: 1.0, constant: 0))
             
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.GreaterThanOrEqual, toItem: nil, attribute: NSLayoutAttribute.Height, multiplier: 1.0, constant: 40))
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Width, multiplier: 0.5, constant: -0.5))
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.Trailing, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Trailing, multiplier: 1.0, constant: 0))
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.Top, relatedBy: NSLayoutRelation.Equal, toItem: borderView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 0))
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.Equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 0))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.height, relatedBy: NSLayoutRelation.greaterThanOrEqual, toItem: nil, attribute: NSLayoutAttribute.height, multiplier: 1.0, constant: 40))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.width, relatedBy: NSLayoutRelation.equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.width, multiplier: 0.5, constant: -0.5))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.trailing, relatedBy: NSLayoutRelation.equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.trailing, multiplier: 1.0, constant: 0))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.top, relatedBy: NSLayoutRelation.equal, toItem: borderView, attribute: NSLayoutAttribute.bottom, multiplier: 1.0, constant: 0))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.bottom, relatedBy: NSLayoutRelation.equal, toItem: buttonsContainer, attribute: NSLayoutAttribute.bottom, multiplier: 1.0, constant: 0))
             
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: buttonSeperatorBorder, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.GreaterThanOrEqual, toItem: nil, attribute: NSLayoutAttribute.Width, multiplier: 1.0, constant: 1))
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: buttonSeperatorBorder, attribute: NSLayoutAttribute.Top, relatedBy: NSLayoutRelation.GreaterThanOrEqual, toItem: borderView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 0))
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: buttonSeperatorBorder, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.GreaterThanOrEqual, toItem: buttonsContainer, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 0))
-            buttonsContainer.addConstraint(NSLayoutConstraint(item: buttonSeperatorBorder, attribute: NSLayoutAttribute.CenterX, relatedBy: NSLayoutRelation.GreaterThanOrEqual, toItem: buttonsContainer, attribute: NSLayoutAttribute.CenterX, multiplier: 1.0, constant: 0))
-        }else if self.style == DVAlertViewControllerStyle.ActionSheet || self.isPad(){
-            toolbar.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.Height, multiplier: 1.0, constant: 30))
-            toolbar.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.Width, multiplier: 1.0, constant: 70))
-            toolbar.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.CenterY, relatedBy: NSLayoutRelation.Equal, toItem: toolbar, attribute: NSLayoutAttribute.CenterY, multiplier: 1.0, constant: 0))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: buttonSeperatorBorder, attribute: NSLayoutAttribute.width, relatedBy: NSLayoutRelation.greaterThanOrEqual, toItem: nil, attribute: NSLayoutAttribute.width, multiplier: 1.0, constant: 1))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: buttonSeperatorBorder, attribute: NSLayoutAttribute.top, relatedBy: NSLayoutRelation.greaterThanOrEqual, toItem: borderView, attribute: NSLayoutAttribute.bottom, multiplier: 1.0, constant: 0))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: buttonSeperatorBorder, attribute: NSLayoutAttribute.bottom, relatedBy: NSLayoutRelation.greaterThanOrEqual, toItem: buttonsContainer, attribute: NSLayoutAttribute.bottom, multiplier: 1.0, constant: 0))
+            buttonsContainer.addConstraint(NSLayoutConstraint(item: buttonSeperatorBorder, attribute: NSLayoutAttribute.centerX, relatedBy: NSLayoutRelation.greaterThanOrEqual, toItem: buttonsContainer, attribute: NSLayoutAttribute.centerX, multiplier: 1.0, constant: 0))
+        }else if self.style == DVAlertViewControllerStyle.actionSheet || self.style == DVAlertViewControllerStyle.datePicker || self.style == DVAlertViewControllerStyle.picker{
+            toolbar.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.height, relatedBy: NSLayoutRelation.equal, toItem: nil, attribute: NSLayoutAttribute.height, multiplier: 1.0, constant: 30))
+            toolbar.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.width, relatedBy: NSLayoutRelation.equal, toItem: nil, attribute: NSLayoutAttribute.width, multiplier: 1.0, constant: 70))
+            toolbar.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.centerY, relatedBy: NSLayoutRelation.equal, toItem: toolbar, attribute: NSLayoutAttribute.centerY, multiplier: 1.0, constant: 0))
             
-            toolbar.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.Leading, relatedBy: NSLayoutRelation.Equal, toItem: toolbar, attribute: NSLayoutAttribute.Leading, multiplier: 1.0, constant: 8))
-            toolbar.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.Trailing, relatedBy: NSLayoutRelation.Equal, toItem: titleLabel, attribute: NSLayoutAttribute.Leading, multiplier: 1.0, constant: -8))
+            toolbar.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.leading, relatedBy: NSLayoutRelation.equal, toItem: toolbar, attribute: NSLayoutAttribute.leading, multiplier: 1.0, constant: 8))
+            toolbar.addConstraint(NSLayoutConstraint(item: cancelButton, attribute: NSLayoutAttribute.trailing, relatedBy: NSLayoutRelation.equal, toItem: titleLabel, attribute: NSLayoutAttribute.leading, multiplier: 1.0, constant: -8))
             
-            toolbar.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.Height, multiplier: 1.0, constant: 30))
-            toolbar.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.Width, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.Width, multiplier: 1.0, constant: 70))
-            toolbar.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.CenterY, relatedBy: NSLayoutRelation.Equal, toItem: toolbar, attribute: NSLayoutAttribute.CenterY, multiplier: 1.0, constant: 0))
+            toolbar.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.height, relatedBy: NSLayoutRelation.equal, toItem: nil, attribute: NSLayoutAttribute.height, multiplier: 1.0, constant: 30))
+            toolbar.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.width, relatedBy: NSLayoutRelation.equal, toItem: nil, attribute: NSLayoutAttribute.width, multiplier: 1.0, constant: 70))
+            toolbar.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.centerY, relatedBy: NSLayoutRelation.equal, toItem: toolbar, attribute: NSLayoutAttribute.centerY, multiplier: 1.0, constant: 0))
             
-            toolbar.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.Leading, relatedBy: NSLayoutRelation.Equal, toItem: titleLabel, attribute: NSLayoutAttribute.Trailing, multiplier: 1.0, constant: 8))
-            toolbar.addConstraint(NSLayoutConstraint(item: toolbar, attribute: NSLayoutAttribute.Trailing, relatedBy: NSLayoutRelation.Equal, toItem: createButton, attribute: NSLayoutAttribute.Trailing, multiplier: 1.0, constant: 8))
+            toolbar.addConstraint(NSLayoutConstraint(item: createButton, attribute: NSLayoutAttribute.leading, relatedBy: NSLayoutRelation.equal, toItem: titleLabel, attribute: NSLayoutAttribute.trailing, multiplier: 1.0, constant: 8))
+            toolbar.addConstraint(NSLayoutConstraint(item: toolbar, attribute: NSLayoutAttribute.trailing, relatedBy: NSLayoutRelation.equal, toItem: createButton, attribute: NSLayoutAttribute.trailing, multiplier: 1.0, constant: 8))
         }
         
         contentView = UIView()
-        contentView.backgroundColor = UIColor.clearColor()
+        contentView.backgroundColor = UIColor.clear
         //contentView.backgroundColor = UIColor.greenColor()
         contentView.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(contentView)
         
-        
-        containerView.addConstraint(NSLayoutConstraint(item: contentView, attribute: NSLayoutAttribute.Leading, relatedBy: NSLayoutRelation.Equal, toItem: containerView, attribute: NSLayoutAttribute.Leading, multiplier: 1.0, constant: 8))
-        containerView.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Trailing, relatedBy: NSLayoutRelation.Equal, toItem: contentView, attribute: NSLayoutAttribute.Trailing, multiplier: 1.0, constant: 8))
-        let cns1 = NSLayoutConstraint(item: contentView, attribute: NSLayoutAttribute.Top, relatedBy: NSLayoutRelation.Equal, toItem: toolbar, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 8)
-        cns1.priority = 750
+        containerView.addConstraint(NSLayoutConstraint(item: contentView, attribute: NSLayoutAttribute.leading, relatedBy: NSLayoutRelation.equal, toItem: containerView, attribute: NSLayoutAttribute.leading, multiplier: 1.0, constant: contentViewPadding))
+        containerView.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.trailing, relatedBy: NSLayoutRelation.equal, toItem: contentView, attribute: NSLayoutAttribute.trailing, multiplier: 1.0, constant: contentViewPadding))
+        let cns1 = NSLayoutConstraint(item: contentView, attribute: NSLayoutAttribute.top, relatedBy: NSLayoutRelation.equal, toItem: toolbar, attribute: NSLayoutAttribute.bottom, multiplier: 1.0, constant: 8)
+        cns1.priority = UILayoutPriority(rawValue: 750)
         containerView.addConstraint(cns1)
         
-        let cns2 = NSLayoutConstraint(item: contentView, attribute: NSLayoutAttribute.Top, relatedBy: NSLayoutRelation.Equal, toItem: containerView, attribute: NSLayoutAttribute.Top, multiplier: 1.0, constant: 8)
-        cns2.priority = 750
+        let cns2 = NSLayoutConstraint(item: contentView, attribute: NSLayoutAttribute.top, relatedBy: NSLayoutRelation.equal, toItem: containerView, attribute: NSLayoutAttribute.top, multiplier: 1.0, constant: contentViewPadding)
+        cns2.priority = UILayoutPriority(rawValue: 750)
         containerView.addConstraint(cns2)
         
-        contentViewTopCns = NSLayoutConstraint(item: contentView, attribute: NSLayoutAttribute.Top, relatedBy: NSLayoutRelation.Equal, toItem: containerView, attribute: NSLayoutAttribute.Top, multiplier: 1.0, constant: 8)
-        contentViewTopCns?.priority = 1000
+        contentViewTopCns = NSLayoutConstraint(item: contentView, attribute: NSLayoutAttribute.top, relatedBy: NSLayoutRelation.equal, toItem: containerView, attribute: NSLayoutAttribute.top, multiplier: 1.0, constant: 8)
+        contentViewTopCns?.priority = UILayoutPriority(rawValue: 1000)
         
-        if self.style == DVAlertViewControllerStyle.Popup && self.isPhone(){
-            let cns3 = NSLayoutConstraint(item: buttonsContainer, attribute: NSLayoutAttribute.Top, relatedBy: NSLayoutRelation.Equal, toItem: contentView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 8)
-            cns3.priority = 750
+        if self.style == DVAlertViewControllerStyle.popup{
+            let cns3 = NSLayoutConstraint(item: buttonsContainer, attribute: NSLayoutAttribute.top, relatedBy: NSLayoutRelation.equal, toItem: contentView, attribute: NSLayoutAttribute.bottom, multiplier: 1.0, constant: contentViewPadding)
+            cns3.priority = UILayoutPriority(rawValue: 750)
             containerView.addConstraint(cns3)
             
-            let cns4 = NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.Equal, toItem: contentView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 8)
-            cns4.priority = 750
+            let cns4 = NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.bottom, relatedBy: NSLayoutRelation.equal, toItem: contentView, attribute: NSLayoutAttribute.bottom, multiplier: 1.0, constant: contentViewPadding)
+            cns4.priority = UILayoutPriority(rawValue: 750)
             containerView.addConstraint(cns4)
             
-            contentViewBottomCns = NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.Equal, toItem: contentView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 8)
-            contentViewBottomCns?.priority = 1000
-        }else if self.style == DVAlertViewControllerStyle.ActionSheet || self.isPad(){
-            containerView.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.Equal, toItem: contentView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: 8))
+            contentViewBottomCns = NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.bottom, relatedBy: NSLayoutRelation.equal, toItem: contentView, attribute: NSLayoutAttribute.bottom, multiplier: 1.0, constant: 8)
+            contentViewBottomCns?.priority = UILayoutPriority(rawValue: 1000)
+        }else if self.style == DVAlertViewControllerStyle.actionSheet{
+            containerView.addConstraint(NSLayoutConstraint(item: containerView, attribute: NSLayoutAttribute.bottom, relatedBy: NSLayoutRelation.equal, toItem: contentView, attribute: NSLayoutAttribute.bottom, multiplier: 1.0, constant: contentViewPadding))
         }
         
         if fromViewPoint != nil{
@@ -616,38 +796,40 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         
     }
     
-    override func touchesBegan(touches: Set<UITouch>, withEvent event: UIEvent?) {
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         if let touch: UITouch = touches.first{
-            let location = touch.locationInView(self.view)
-            let fingerRect: CGRect = CGRectMake(location.x-5, location.y-5, 10, 10)
-            if !CGRectIntersectsRect(fingerRect, containerView.frame){
-                if (tableData.count > 0 || tableDictionaryData.count > 0) && shouldReturnSelectionOnDismiss{
-                    self.createButton.sendActionsForControlEvents(UIControlEvents.TouchUpInside)
-                }else{
-                    self.hide()
+            if shouldDismissOnEmptyAreaTap{
+                let location = touch.location(in: self.view)
+                let fingerRect: CGRect = CGRect(x: location.x-5, y: location.y-5, width: 10, height: 10)
+                if !fingerRect.intersects(containerView.frame){
+                    if (tableData.count > 0 || tableDictionaryData.count > 0) && shouldReturnSelectionOnDismiss{
+                        self.createButton.sendActions(for: UIControlEvents.touchUpInside)
+                    }else if shouldDismissOnEmptyAreaTap{
+                        self.cancelButton.sendActions(for: UIControlEvents.touchUpInside)
+                    }
                 }
             }
         }
     }
     
-    func cancelTap(sender: AnyObject){
+    @objc func cancelTap(_ sender: AnyObject){
         if self.cancelBlock != nil{
             self.cancelBlock?()
         }else{
-            self.dismissViewControllerAnimated(true, completion: nil)
+            self.dismiss(animated: true, completion: nil)
         }
     }
     
-    func createTap(sender: AnyObject){
+    @objc func createTap(_ sender: AnyObject){
         if self.doneBlock != nil{
             if tableData.count > 0 && selectedIndexPath != nil{
-                self.doneBlock?(index: selectedIndexPath?.row)
+                self.doneBlock?((selectedIndexPath as IndexPath?)?.row)
             }else{
-                self.doneBlock?(index: nil)
+                self.doneBlock?(nil)
             }
             self.hide()
         }else{
-            self.dismissViewControllerAnimated(true, completion: nil)
+            self.dismiss(animated: true, completion: nil)
         }
     }
     
@@ -657,34 +839,35 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             contentView.addSubview(popoverVC.view)
             
             self.addChildViewController(popoverVC)
-            popoverVC.didMoveToParentViewController(self)
+            popoverVC.didMove(toParentViewController: self)
         }else if popoverView != nil{
             popoverView!.translatesAutoresizingMaskIntoConstraints = false
             contentView.addSubview(popoverView!)
-            contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("H:|-0-[popoverView]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["popoverView": popoverView!]))
-            contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:|-0-[popoverView]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["popoverView": popoverView!]))
+            contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "H:|-0-[popoverView]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["popoverView": popoverView!]))
+            contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "V:|-0-[popoverView]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["popoverView": popoverView!]))
         }else if tableData.count > 0 || tableDictionaryData.count > 0{
             tableView = UITableView(frame: self.contentView.bounds)
             //tableView.backgroundColor = UIColor.redColor()
             tableView?.delegate = self
             tableView?.dataSource = self
-            tableView?.separatorStyle = .None
+            tableView?.separatorStyle = .none
             self.updateTableScrollEnabled()
             tableView?.translatesAutoresizingMaskIntoConstraints = false
             self.contentView.addSubview(tableView!)
             
-            self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("H:|-0-[table]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["table": tableView!]))
-            self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:|-0-[table]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["table": tableView!]))
+            self.contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "H:|-0-[table]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["table": tableView!]))
+            self.contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "V:|-0-[table]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["table": tableView!]))
         }else if inputFields != nil{
             var contentViewHeight: CGFloat = CGFloat(inputFields!.count) * inputFieldHeight
             var topView: UIView? = nil
-            for (index, field) in inputFields!.enumerate(){
-                if field.isKindOfClass(UITextField.self) || field.isKindOfClass(UITextView.self){
+            for (index, field) in inputFields!.enumerated(){
+                if field.isKind(of: UITextField.self) || field.isKind(of: UITextView.self){
                     var textField: UIView!
                     
                     if let textfield: UITextField = field as? UITextField{
                         textfield.delegate = self
-                        textfield.returnKeyType = UIReturnKeyType.Done
+                        textfield.tag = index
+                        textfield.returnKeyType = index < inputFields!.count - 1 ? UIReturnKeyType.next : UIReturnKeyType.done
                         textField = textfield
                     }else if let textView: UITextView = field as? UITextView{
                         textView.delegate = self
@@ -694,23 +877,23 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
                     textField.translatesAutoresizingMaskIntoConstraints = false
                     contentView.addSubview(textField)
                     
-                    self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("H:|-0-[textField]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["textField": textField]))
+                    self.contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "H:|-0-[textField]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["textField": textField]))
                     
                     if inputFields?.count == 1{
-                        self.contentView.addConstraint(NSLayoutConstraint(item: textField, attribute: NSLayoutAttribute.Height, relatedBy: NSLayoutRelation.Equal, toItem: nil, attribute: NSLayoutAttribute.Height, multiplier: 1.0, constant: inputFieldHeight))
-                        self.contentView.addConstraint(NSLayoutConstraint(item: textField, attribute: NSLayoutAttribute.CenterY, relatedBy: NSLayoutRelation.Equal, toItem: self.contentView, attribute: NSLayoutAttribute.CenterY, multiplier: 1.0, constant: 0))
+                        self.contentView.addConstraint(NSLayoutConstraint(item: textField, attribute: NSLayoutAttribute.height, relatedBy: NSLayoutRelation.equal, toItem: nil, attribute: NSLayoutAttribute.height, multiplier: 1.0, constant: inputFieldHeight))
+                        self.contentView.addConstraint(NSLayoutConstraint(item: textField, attribute: NSLayoutAttribute.centerY, relatedBy: NSLayoutRelation.equal, toItem: self.contentView, attribute: NSLayoutAttribute.centerY, multiplier: 1.0, constant: 0))
                     }else{
                         if topView == nil{
                             if index < inputFields!.count - 1{
-                                self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:|-0-[textField(height)]", options: NSLayoutFormatOptions(), metrics: ["height": inputFieldHeight], views: ["textField": textField]))
+                                self.contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "V:|-0-[textField(height)]", options: NSLayoutFormatOptions(), metrics: ["height": inputFieldHeight], views: ["textField": textField]))
                             }else{
-                                self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:|-0-[textField(height)]-(>=0)-|", options: NSLayoutFormatOptions(), metrics: ["height": inputFieldHeight], views: ["textField": textField]))
+                                self.contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "V:|-0-[textField(height)]-(>=0)-|", options: NSLayoutFormatOptions(), metrics: ["height": inputFieldHeight], views: ["textField": textField]))
                             }
                         }else{
                             if index < inputFields!.count - 1{
-                                self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:[topView]-0-[textField(height)]", options: NSLayoutFormatOptions(), metrics: ["height": inputFieldHeight], views: ["textField": textField, "topView": topView!]))
+                                self.contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "V:[topView]-0-[textField(height)]", options: NSLayoutFormatOptions(), metrics: ["height": inputFieldHeight], views: ["textField": textField, "topView": topView!]))
                             }else{
-                                self.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:[topView]-0-[textField(height)]-(>=0)-|", options: NSLayoutFormatOptions(), metrics: ["height": inputFieldHeight], views: ["textField": textField, "topView": topView!]))
+                                self.contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "V:[topView]-0-[textField(height)]-(>=0)-|", options: NSLayoutFormatOptions(), metrics: ["height": inputFieldHeight], views: ["textField": textField, "topView": topView!]))
                             }
                         }
                     }
@@ -722,29 +905,60 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
             
             
             if !hiddenControl && !hiddenToolbar{
-                contentViewHeight = contentViewHeight + 81.0 + 16.0
+                contentViewHeight = contentViewHeight + 81.0 + (contentViewPadding * 2)
             }else if !hiddenControl || !hiddenToolbar{
-                contentViewHeight = contentViewHeight + 41.0 + 16.0
+                contentViewHeight = contentViewHeight + 41.0 + (contentViewPadding * 2)
             }else if hiddenControl && hiddenToolbar{
-                contentViewHeight = contentViewHeight + 16.0
+                contentViewHeight = contentViewHeight + (contentViewPadding * 2)
             }
             
             if contentViewHeight > contentSize?.height{
-                containerView.removeConstraint(containerViewHeightCns)
                 self.view.needsUpdateConstraints()
                 containerViewHeightCns.constant = contentViewHeight
-                containerView.addConstraint(containerViewHeightCns)
                 self.view.layoutIfNeeded()
             }
+        }else if self.style == .datePicker{
+            let datepicker: UIDatePicker = UIDatePicker()
+            //datepicker.setValue(UIFont.systemFontOfSize(14), forKey: "font")
+            //datepicker.setValue(UIColor.redColor(), forKey: "textColor")
+            datepicker.datePickerMode = UIDatePickerMode.date
+            datepicker.datePickerMode = self.datePickerMode
+            datepicker.minimumDate = self.minimumDate
+            datepicker.maximumDate = self.maximumDate
+            if minuteInterval != nil{
+                datepicker.minuteInterval = minuteInterval!
+            }
+            datepicker.date = Date()
+            datepicker.date = self.selectedDate
+            
+            datepicker.addTarget(self, action: #selector(actionDatePickerValueChange(_:)), for: UIControlEvents.valueChanged)
+            
+            contentView.addSubview(datepicker)
+            datepicker.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "H:|-0-[datepicker]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["datepicker": datepicker]))
+            contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "V:|-0-[datepicker]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["datepicker": datepicker]))
+        }else if self.style == .picker{
+            let pickerView: UIPickerView = UIPickerView()
+            pickerView.delegate = self
+            pickerView.dataSource = self
+            if selectedPickerIndex != nil{
+                pickerView.selectRow(selectedPickerIndex!, inComponent: 0, animated: false)
+            }
+            
+            
+            pickerView.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview(pickerView)
+            contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "H:|-0-[pickerView]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["pickerView": pickerView]))
+            contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "V:|-0-[pickerView]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["pickerView": pickerView]))
         }
         
-        if self.style == DVAlertViewControllerStyle.Popup{
+        if self.style == DVAlertViewControllerStyle.popup{
             var shouldAnimate: Bool = true
             if !self.shouldShowInCenterY{
                 containerView.alpha = 0
                 shouldAnimate = false
             }
-            parentController.presentViewController(self, animated: shouldAnimate){ () -> Void in
+            parentController.present(self, animated: shouldAnimate){ () -> Void in
                 if !self.shouldShowInCenterY{
                     if self._bgLayer != nil{
                         self._bgLayer.removeFromSuperlayer()
@@ -752,8 +966,8 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
                         self._bgLayer = CAShapeLayer()
                     }
                     var centerX: CGFloat = self.fromViewPoint!.x
-                    centerX = self.fromViewPoint!.x - self.view.convertPoint(CGPointMake(0, 0), fromView: self.containerView).x
-                    //print("centerX = \(centerX)")
+                    centerX = self.fromViewPoint!.x - self.view.convert(CGPoint(x: 0, y: 0), from: self.containerView).x
+                    //DVPrint("centerX = \(centerX)")
                     if self.fromView != nil{
                         if self.contentSize?.width <= centerX + self.fromViewWidth/2 + 10{
                             centerX = centerX + self.contentSize!.width/2 - 5
@@ -761,77 +975,86 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
                             centerX = centerX + self.fromViewWidth/2
                         }
                     }
-                    //print("centerX1 = \(centerX)")
-                    var path: CGPathRef = self.newBubble(CGPointMake(centerX - 5, 0), y: CGPointMake(centerX + 5, 0), z: CGPointMake(centerX, -10))
+                    //DVPrint("centerX1 = \(centerX)")
+                    var path: CGPath = self.newBubble(CGPoint(x: centerX - 5, y: 0), y: CGPoint(x: centerX + 5, y: 0), z: CGPoint(x: centerX, y: -10))
                     if self.shouldShowInTop{
-                        path = self.newBubble(CGPointMake(centerX - 5, self.containerView.frame.size.height), y: CGPointMake(centerX + 5, self.containerView.frame.size.height), z: CGPointMake(centerX, self.containerView.frame.size.height + 10))
+                        path = self.newBubble(CGPoint(x: centerX - 5, y: self.containerView.frame.size.height), y: CGPoint(x: centerX + 5, y: self.containerView.frame.size.height), z: CGPoint(x: centerX, y: self.containerView.frame.size.height + 10))
                     }
-                    //print("shouldShowInLeft = \(self.shouldShowInLeft)")
-                    //print("shouldShowInRigth = \(self.shouldShowInRigth)")
+                    //DVPrint("shouldShowInLeft = \(self.shouldShowInLeft)")
+                    //DVPrint("shouldShowInRigth = \(self.shouldShowInRigth)")
                     self._bgLayer.path = path
                     
-                    self._bgLayer.fillColor = UIColor.whiteColor().CGColor
+                    self._bgLayer.fillColor = UIColor.white.cgColor
                     
                     
                     
-                    self.containerView.layer.insertSublayer(self._bgLayer, atIndex: 0)
+                    self.containerView.layer.insertSublayer(self._bgLayer, at: 0)
                 }
-                UIView.animateWithDuration(0.25, animations: { 
+                UIView.animate(withDuration: 0.25, animations: { 
                     self.containerView.alpha = 1
                 })
             }
-        }else if self.style == DVAlertViewControllerStyle.ActionSheet{
-            parentController.presentViewController(self, animated: false) { () -> Void in
-                self.containerView.layoutIfNeeded()
-                
+        }else if self.style == DVAlertViewControllerStyle.actionSheet || self.style == DVAlertViewControllerStyle.datePicker || self.style == DVAlertViewControllerStyle.picker{
+            parentController.present(self, animated: false) { () -> Void in
+                self.view.needsUpdateConstraints()
                 self.actionSheetBottomConstraint.constant = 0
-                UIView.animateWithDuration(0.2, animations: { () -> Void in
-                    self.containerView.layoutIfNeeded()
+                UIView.animate(withDuration: 0.2, animations: { () -> Void in
+                    self.view.layoutIfNeeded()
                 })
             }
         }
     }
     
-    func hide(animation: Bool? = false){
-        UIView.animateWithDuration(0.2, animations: { () -> Void in
-            self.view.alpha = 0
-            }) { (success: Bool) -> Void in
-                self.dismissViewControllerAnimated(animation!, completion: nil)
+    func hide(_ animation: Bool? = false){
+        if self.style == .actionSheet || self.style == .datePicker{
+            self.view.needsUpdateConstraints()
+            self.actionSheetBottomConstraint.constant = -(self.contentSize != nil ? self.contentSize!.height + (contentViewPadding * 2) : actionSheetHeight + (contentViewPadding * 2))
+            UIView.animate(withDuration: 0.2, animations: {
+                self.view.layoutIfNeeded()
+                }, completion: { (finished: Bool) in
+                    self.dismiss(animated: false, completion: nil)
+            })
+        }else{
+            UIView.animate(withDuration: 0.2, animations: { () -> Void in
+                self.view.alpha = 0
+                }, completion: { (success: Bool) -> Void in
+                    self.dismiss(animated: animation!, completion: nil)
+            })
         }
     }
     
     
     func updateTableScrollEnabled(){
         if !hiddenControl && !hiddenToolbar{
-            //print("here !! = \(contentSize!.height - CGFloat(96.0)), \(CGFloat(CGFloat(tableData.count) * tableRowHeight))")
+            //DVPrint("here !! = \(contentSize!.height - CGFloat(96.0)), \(CGFloat(CGFloat(tableData.count) * tableRowHeight))")
             if contentSize!.height - CGFloat(96.0) >= CGFloat(CGFloat(tableData.count) * tableRowHeight){
-                tableView?.scrollEnabled = false
+                tableView?.isScrollEnabled = false
             }else{
-                tableView?.scrollEnabled = true
+                tableView?.isScrollEnabled = true
             }
         }else if !hiddenControl || !hiddenToolbar{
-            //print("here ! = \(contentSize!.height - CGFloat(48.0)), \(CGFloat(CGFloat(tableData.count) * tableRowHeight))")
+            //DVPrint("here ! = \(contentSize!.height - CGFloat(48.0)), \(CGFloat(CGFloat(tableData.count) * tableRowHeight))")
             if contentSize!.height - CGFloat(48.0) >= CGFloat(CGFloat(tableData.count) * tableRowHeight){
-                tableView?.scrollEnabled = false
+                tableView?.isScrollEnabled = false
             }else{
-                tableView?.scrollEnabled = true
+                tableView?.isScrollEnabled = true
             }
         }else if hiddenControl && hiddenToolbar{
-            //print("here && = \(contentSize!.height - CGFloat(16.0)), \(CGFloat(CGFloat(tableData.count) * tableRowHeight))")
-            if contentSize!.height - CGFloat(16.0) >= CGFloat(CGFloat(tableData.count) * tableRowHeight){
-                tableView?.scrollEnabled = false
+            //DVPrint("here && = \(contentSize!.height - CGFloat(16.0)), \(CGFloat(CGFloat(tableData.count) * tableRowHeight))")
+            if contentSize!.height - (contentViewPadding * 2) >= CGFloat(CGFloat(tableData.count) * tableRowHeight){
+                tableView?.isScrollEnabled = false
             }else{
-                tableView?.scrollEnabled = true
+                tableView?.isScrollEnabled = true
             }
         }
     }
     
     // MARK: - UITableViewDataSource
-    func numberOfSectionsInTableView(tableView: UITableView) -> Int {
+    func numberOfSections(in tableView: UITableView) -> Int {
         return 1
     }
     
-    func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    @objc func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         if tableDictionaryData.count > 0{
             if self.pickerIndexPath != nil{
                 // we have a date picker, so allow for it in the number of rows in this section
@@ -842,70 +1065,70 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         return tableData.count
     }
     
-    func tableView(tableView: UITableView, heightForRowAtIndexPath indexPath: NSIndexPath) -> CGFloat {
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         if pickerIndexPath == indexPath{
             return self.pickerCellRowHeight
         }
         return tableRowHeight
     }
     
-    func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
         var cell: UITableViewCell?
         
         if tableDictionaryData.count > 0{
-            var cellData: NSDictionary!
+            var cellData: [String: Any]!
             
-            if indexPath.row < tableDictionaryData.count{
-                cellData = tableDictionaryData[indexPath.row] as! NSDictionary
+            if (indexPath as NSIndexPath).row < tableDictionaryData.count{
+                cellData = tableDictionaryData[indexPath.row]
             }
             
             if pickerIndexPath?.section == indexPath.section && indexPath.row >= pickerIndexPath?.row{
-                cellData = tableDictionaryData[indexPath.row - 1] as! NSDictionary
+                cellData = tableDictionaryData[indexPath.row - 1]
             }
             
-            let cellType: Int? = cellData.objectForKey("type") as? Int
+            let cellType: Int? = cellData["type"] as? Int
             
             if pickerIndexPath != nil{
-                if cellType == DVAlertViewControllerCellType.Date.rawValue || cellType == DVAlertViewControllerCellType.DateTime.rawValue{
-                    var datePickerCell: UITableViewCell? = tableView.dequeueReusableCellWithIdentifier("datePicker")
+                if cellType == DVAlertViewControllerCellType.date.rawValue || cellType == DVAlertViewControllerCellType.dateTime.rawValue{
+                    var datePickerCell: UITableViewCell? = tableView.dequeueReusableCell(withIdentifier: "datePicker")
                     if datePickerCell == nil{
-                        datePickerCell = UITableViewCell(style: UITableViewCellStyle.Default, reuseIdentifier: "datePicker")
+                        datePickerCell = UITableViewCell(style: UITableViewCellStyle.default, reuseIdentifier: "datePicker")
                         let datepicker: UIDatePicker = UIDatePicker()
                         //datepicker.setValue(UIFont.systemFontOfSize(14), forKey: "font")
                         //datepicker.setValue(UIColor.redColor(), forKey: "textColor")
-                        datepicker.datePickerMode = UIDatePickerMode.Date
-                        if cellType == DVAlertViewControllerCellType.DateTime.rawValue{
-                            datepicker.datePickerMode = UIDatePickerMode.DateAndTime
+                        datepicker.datePickerMode = UIDatePickerMode.date
+                        if cellType == DVAlertViewControllerCellType.dateTime.rawValue{
+                            datepicker.datePickerMode = UIDatePickerMode.dateAndTime
                         }
                         
-                        datepicker.date = NSDate()
-                        if let date: NSDate = cellData.objectForKey("value") as? NSDate{
+                        datepicker.date = Date()
+                        if let date: Date = cellData["value"] as? Date{
                             datepicker.date = date
                         }
-                        datepicker.addTarget(self, action: #selector(datePickerValueChanged(_:)), forControlEvents: UIControlEvents.ValueChanged)
+                        datepicker.addTarget(self, action: #selector(datePickerValueChanged(_:)), for: UIControlEvents.valueChanged)
                         
                         datepicker.translatesAutoresizingMaskIntoConstraints = false
                         datePickerCell?.contentView.addSubview(datepicker)
-                        datePickerCell!.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("H:|-0-[datepicker]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["datepicker": datepicker]))
-                        datePickerCell!.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:|-0-[datepicker]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["datepicker": datepicker]))
+                        datePickerCell!.contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "H:|-0-[datepicker]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["datepicker": datepicker]))
+                        datePickerCell!.contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "V:|-0-[datepicker]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["datepicker": datepicker]))
                     }
                     
                     cell = datePickerCell
-                }else if cellType == DVAlertViewControllerCellType.Picker.rawValue{
-                    var uiPickerCell: UITableViewCell? = tableView.dequeueReusableCellWithIdentifier("uiPicker")
+                }else if cellType == DVAlertViewControllerCellType.picker.rawValue{
+                    var uiPickerCell: UITableViewCell? = tableView.dequeueReusableCell(withIdentifier: "uiPicker")
                     if uiPickerCell == nil{
-                        uiPickerCell = UITableViewCell(style: UITableViewCellStyle.Default, reuseIdentifier: "uiPicker")
+                        uiPickerCell = UITableViewCell(style: UITableViewCellStyle.default, reuseIdentifier: "uiPicker")
                         let pickerView: UIPickerView = UIPickerView()
                         
-                        if let options: [String] = cellData.objectForKey("options") as? [String]{
+                        if let options: [String] = cellData["options"] as? [String]{
                             pickerDataValues = options
                             pickerView.delegate = self
                             pickerView.dataSource = self
                             
-                            if let selectedValue: String = cellData.objectForKey("selectedValue") as? String{
+                            if let selectedValue: String = cellData["selectedValue"] as? String{
                                 selectedPickerValue = selectedValue
-                                pickerView.selectRow(pickerDataValues.indexOf(selectedValue)!, inComponent: 0, animated: false)
+                                pickerView.selectRow(pickerDataValues.index(of: selectedValue)!, inComponent: 0, animated: false)
                             }
                             
                         }
@@ -913,32 +1136,32 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
                         
                         pickerView.translatesAutoresizingMaskIntoConstraints = false
                         uiPickerCell?.contentView.addSubview(pickerView)
-                        uiPickerCell!.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("H:|-0-[pickerView]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["pickerView": pickerView]))
-                        uiPickerCell!.contentView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormat("V:|-0-[pickerView]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["pickerView": pickerView]))
+                        uiPickerCell!.contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "H:|-0-[pickerView]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["pickerView": pickerView]))
+                        uiPickerCell!.contentView.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "V:|-0-[pickerView]-0-|", options: NSLayoutFormatOptions(), metrics: nil, views: ["pickerView": pickerView]))
                     }
                     
                     cell = uiPickerCell
                 }
             }else{
-                if cellType == DVAlertViewControllerCellType.Date.rawValue || cellType == DVAlertViewControllerCellType.DateTime.rawValue || cellType == DVAlertViewControllerCellType.Picker.rawValue{
-                    var pickerCell: UITableViewCell? = tableView.dequeueReusableCellWithIdentifier("pickerCell")
+                if cellType == DVAlertViewControllerCellType.date.rawValue || cellType == DVAlertViewControllerCellType.dateTime.rawValue || cellType == DVAlertViewControllerCellType.picker.rawValue{
+                    var pickerCell: UITableViewCell? = tableView.dequeueReusableCell(withIdentifier: "pickerCell")
                     
                     if pickerCell == nil{
-                        pickerCell = UITableViewCell(style: UITableViewCellStyle.Default, reuseIdentifier: "pickerCell")
+                        pickerCell = UITableViewCell(style: UITableViewCellStyle.default, reuseIdentifier: "pickerCell")
                     }
                     
-                    pickerCell?.textLabel?.text = cellData.objectForKey("title") as? String
+                    pickerCell?.textLabel?.text = cellData["title"] as? String
                     
-                    if cellType == DVAlertViewControllerCellType.Date.rawValue{
-                        if let date: NSDate = cellData.objectForKey("value") as? NSDate{
-                            pickerCell?.textLabel?.text = self.dateFormatter.stringFromDate(date)
+                    if cellType == DVAlertViewControllerCellType.date.rawValue{
+                        if let date: Date = cellData["value"] as? Date{
+                            pickerCell?.textLabel?.text = self.dateFormatter.string(from: date)
                         }
-                    }else if cellType == DVAlertViewControllerCellType.DateTime.rawValue{
-                        if let date: NSDate = cellData.objectForKey("value") as? NSDate{
-                            pickerCell?.textLabel?.text = self.dateTimeFormatter.stringFromDate(date)
+                    }else if cellType == DVAlertViewControllerCellType.dateTime.rawValue{
+                        if let date: Date = cellData["value"] as? Date{
+                            pickerCell?.textLabel?.text = self.dateTimeFormatter.string(from: date)
                         }
-                    }else if cellType == DVAlertViewControllerCellType.Picker.rawValue{
-                        if let selectedValue: String = cellData.objectForKey("selectedValue") as? String{
+                    }else if cellType == DVAlertViewControllerCellType.picker.rawValue{
+                        if let selectedValue: String = cellData["selectedValue"] as? String{
                             pickerCell?.textLabel?.text = selectedValue
                         }
                     }
@@ -947,47 +1170,77 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
                 }
             }
         }else{
-            cell = tableView.dequeueReusableCellWithIdentifier("cell")
+            cell = tableView.dequeueReusableCell(withIdentifier: "cell")
             
             if cell == nil{
-                cell = UITableViewCell(style: UITableViewCellStyle.Default, reuseIdentifier: "cell")
+                cell = UITableViewCell(style: UITableViewCellStyle.default, reuseIdentifier: "cell")
             }
-            cell?.textLabel?.text = tableData[indexPath.row]
-            cell?.textLabel?.font = UIFont.systemFontOfSize(14)
+            cell?.textLabel?.text = tableData[(indexPath as NSIndexPath).row]
+            cell?.textLabel?.font = tableCellFont
+            cell?.textLabel?.textAlignment = textAllingment
+            cell?.backgroundColor = .white
             
-            cell?.selectionStyle = .None
+            cell?.selectionStyle = .none
             /*cell?.layoutMargins = UIEdgeInsetsZero
             cell?.preservesSuperviewLayoutMargins = false
             cell?.separatorInset = UIEdgeInsetsZero*/
         }
         
         if selectedIndexPath == indexPath && cell?.reuseIdentifier != "pickerCell"{
-            cell?.accessoryType = .Checkmark
+            if selectionColor != nil{
+                cell?.textLabel?.font = tableCellSelectedFont
+                cell?.backgroundColor = selectionColor
+            }else{
+                if tableCellSelectedAccessoryView != nil{
+                    cell?.accessoryView = tableCellSelectedAccessoryView!
+                }else{
+                    cell?.accessoryType = .checkmark
+                }
+            }
         }else{
-            cell?.accessoryType = .None
+            if tableCellAccessoryView != nil{
+                cell?.accessoryView = tableCellAccessoryView!
+            }else{
+                cell?.accessoryType = .none
+            }
         }
         
         return cell!
     }
     
-    func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         prevSelectedIndexPath = selectedIndexPath
         selectedIndexPath = indexPath
         
-        let cell: UITableViewCell = tableView.cellForRowAtIndexPath(indexPath) as UITableViewCell!
+        let cell: UITableViewCell = tableView.cellForRow(at: indexPath) as UITableViewCell!
         
-        if hiddenControl{
-            //print("here \(indexPath.row)")
-            createButton.sendActionsForControlEvents(UIControlEvents.TouchUpInside)
+        if shouldReturnSelectionOnDismiss && cell.reuseIdentifier != "datepicker" && cell.reuseIdentifier != "pickerCell" && cell.reuseIdentifier != "uiPicker"{
+            //DVPrint("here \(indexPath.row)")
+            createButton.sendActions(for: UIControlEvents.touchUpInside)
             return
         }else{
             if prevSelectedIndexPath != nil{
-                if let prevcell: UITableViewCell = tableView.cellForRowAtIndexPath(prevSelectedIndexPath!) as UITableViewCell!{
-                    prevcell.accessoryType = .None
+                if let prevcell: UITableViewCell = tableView.cellForRow(at: prevSelectedIndexPath!) as UITableViewCell!{
+                    if tableCellAccessoryView != nil{
+                        cell.accessoryView = tableCellAccessoryView!
+                    }else{
+                        cell.accessoryType = .none
+                    }
+                    prevcell.backgroundColor = .white
+                    prevcell.textLabel?.font = tableCellFont
                 }
             }
             if cell.reuseIdentifier != "pickerCell"{
-                cell.accessoryType = .Checkmark
+                if selectionColor != nil{
+                    cell.textLabel?.font = tableCellSelectedFont
+                    cell.backgroundColor = selectionColor
+                }else{
+                    if tableCellSelectedAccessoryView != nil{
+                        cell.accessoryView = tableCellSelectedAccessoryView!
+                    }else{
+                        cell.accessoryType = .checkmark
+                    }
+                }
             }
         }
         
@@ -995,32 +1248,32 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         if cell.reuseIdentifier == "pickerCell"{
             displayPicker(indexPath)
         }else{
-            tableView.deselectRowAtIndexPath(indexPath, animated: true)
+            tableView.deselectRow(at: indexPath, animated: true)
         }
     }
     
-    func displayPicker(indexPath: NSIndexPath){
+    func displayPicker(_ indexPath: IndexPath){
         var shouldShowPicker: Bool = true
         //check if previously displayed picker is above selected indexPath
         var before: Bool = false
         // check for previusly displayed picker
         if self.pickerIndexPath != nil{
-            before = self.pickerIndexPath!.row < indexPath.row
+            before = (self.pickerIndexPath! as IndexPath).row < (indexPath as NSIndexPath).row
             //println("before picker delete")
             
             self.tableView?.beginUpdates()
             
-            let nIndexPath: NSIndexPath = NSIndexPath(forRow: self.pickerIndexPath!.row, inSection: self.pickerIndexPath!.section)
+            let nIndexPath: IndexPath = IndexPath(row: (self.pickerIndexPath! as NSIndexPath).row, section: (self.pickerIndexPath! as NSIndexPath).section)
             // if previously selected row match with current row
-            if self.pickerIndexPath!.row - 1 == indexPath.row{
+            if (self.pickerIndexPath! as IndexPath).row - 1 == (indexPath as NSIndexPath).row{
                 shouldShowPicker = false
                 //println("before same picker delete")
                 self.pickerIndexPath = nil
-                self.tableView?.deleteRowsAtIndexPaths([nIndexPath], withRowAnimation: UITableViewRowAnimation.Fade)
+                self.tableView?.deleteRows(at: [nIndexPath], with: UITableViewRowAnimation.fade)
             }else{
-                //print("before different picker delete")
+                //DVPrint("before different picker delete")
                 self.pickerIndexPath = nil
-                self.tableView?.deleteRowsAtIndexPaths([nIndexPath], withRowAnimation: UITableViewRowAnimation.Fade)
+                self.tableView?.deleteRows(at: [nIndexPath], with: UITableViewRowAnimation.fade)
             }
             self.tableView?.endUpdates()
             
@@ -1030,7 +1283,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         //println("before picker add")
         self.tableView?.beginUpdates()
         if shouldShowPicker{
-            var nIndexPath: NSIndexPath = NSIndexPath(forRow: indexPath.row + 1, inSection: indexPath.section)
+            var nIndexPath: IndexPath = IndexPath(row: (indexPath as NSIndexPath).row + 1, section: (indexPath as NSIndexPath).section)
             self.pickerIndexPath = nIndexPath
             
             if before{
@@ -1038,95 +1291,82 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
                 self.pickerIndexPath = indexPath
             }
             
-            self.tableView?.insertRowsAtIndexPaths([nIndexPath], withRowAnimation: UITableViewRowAnimation.Fade)
+            self.tableView?.insertRows(at: [nIndexPath], with: UITableViewRowAnimation.fade)
         }
         
-        tableView?.deselectRowAtIndexPath(indexPath, animated: true)
+        tableView?.deselectRow(at: indexPath, animated: true)
         self.tableView?.endUpdates()
     }
     
     
     // MARK: - UIPickerViewDataSource
     
-    func numberOfComponentsInPickerView(pickerView: UIPickerView) -> Int {
+    func numberOfComponents(in pickerView: UIPickerView) -> Int {
         return 1
     }
     
-    func pickerView(pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
+    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
         return pickerDataValues.count
     }
     
-    func pickerView(pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
+    func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
         return pickerDataValues[row]
     }
     
-    func pickerView(pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
+    func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
         selectedPickerValue = pickerDataValues[row]
-        let indexPath: NSIndexPath = NSIndexPath(forRow: pickerIndexPath!.row - 1, inSection: pickerIndexPath!.section)
-        let cellData: NSMutableDictionary = NSMutableDictionary(dictionary: tableDictionaryData[indexPath.row] as! NSDictionary)
-        cellData.setValue(selectedPickerValue!, forKey: "selectedValue")
-        tableDictionaryData.replaceObjectAtIndex(indexPath.row, withObject: cellData)
-        if let cell: UITableViewCell = tableView?.cellForRowAtIndexPath(indexPath){
-            cell.textLabel?.text = selectedPickerValue
+        selectedPickerIndex = row
+        
+        if tableDictionaryData.count > 0{
+            let indexPath: IndexPath = IndexPath(row: pickerIndexPath!.row - 1, section: pickerIndexPath!.section)
+            var cellData: [String: Any] = tableDictionaryData[indexPath.row]
+            cellData["selectedValue"] = selectedPickerValue!
+            tableDictionaryData[indexPath.row] = cellData
+            
+            if let cell: UITableViewCell = tableView?.cellForRow(at: indexPath){
+                cell.textLabel?.text = selectedPickerValue
+            }
         }
     }
     
-    func datePickerValueChanged(sender: UIDatePicker) {
-        var targetedCellIndexPath: NSIndexPath? = nil
+    @objc func datePickerValueChanged(_ sender: UIDatePicker) {
+        var targetedCellIndexPath: IndexPath? = nil
         
-        targetedCellIndexPath = NSIndexPath(forRow: self.pickerIndexPath!.row - 1, inSection: self.pickerIndexPath!.section)
+        targetedCellIndexPath = IndexPath(row: (self.pickerIndexPath! as NSIndexPath).row - 1, section: (self.pickerIndexPath! as NSIndexPath).section)
         
-        let cell: UITableViewCell = self.tableView?.cellForRowAtIndexPath(targetedCellIndexPath!) as UITableViewCell!
+        let cell: UITableViewCell = self.tableView?.cellForRow(at: targetedCellIndexPath!) as UITableViewCell!
         let targetedDatePicker: UIDatePicker = sender
         
         // update our data model
-        let itemData: NSMutableDictionary = NSMutableDictionary(dictionary: self.tableDictionaryData.objectAtIndex(targetedCellIndexPath!.row) as! NSDictionary)
-        let dict: NSMutableDictionary = NSMutableDictionary(dictionary: itemData)
-        dict.setValue(targetedDatePicker.date, forKey: "value")
-        self.tableDictionaryData.replaceObjectAtIndex(targetedCellIndexPath!.row, withObject: dict)
+        var itemData: [String: Any] = self.tableDictionaryData[targetedCellIndexPath!.row]
+        itemData["value"] = targetedDatePicker.date
         
-        if sender.datePickerMode == .DateAndTime{
-            cell.textLabel?.text = self.dateTimeFormatter.stringFromDate(targetedDatePicker.date)
+        self.tableDictionaryData[targetedCellIndexPath!.row] = itemData
+        
+        if sender.datePickerMode == .dateAndTime{
+            cell.textLabel?.text = self.dateTimeFormatter.string(from: targetedDatePicker.date)
         }else{
-            cell.textLabel?.text = self.dateFormatter.stringFromDate(targetedDatePicker.date)
+            cell.textLabel?.text = self.dateFormatter.string(from: targetedDatePicker.date)
         }
     }
     
+    @objc func actionDatePickerValueChange(_ sender: UIDatePicker){
+        self.selectedDate = sender.date
+    }
+    
     // MARK: - UITextFieldDelegate
-    func textFieldShouldBeginEditing(textField: UITextField) -> Bool {
+    func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool {
         selectedTextField = textField
         
-        let point: CGPoint = self.view.convertPoint(CGPointMake(self.view.frame.size.width / 2, self.view.frame.size.height), toView: textField)
-        if self.view.frame.size.height - point.y < 284{
-            //let anotherPoint: CGPoint = self.view.convertPoint(CGPointMake(self.view.frame.size.width / 2, self.view.frame.size.height), toView: self.containerView)
-            //print("point = \(point), anotherPoint = \(anotherPoint)")
-            
-            for cns in self.view.constraints{
-                if cns.identifier == "bottomCnsForInputs"{
-                    self.view.removeConstraint(cns)
-                    break
-                }
-            }
-            
-            let bottomSpace: CGFloat = 284.0
-            let bottomCns: NSLayoutConstraint = NSLayoutConstraint(item: self.view, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.Equal, toItem: self.containerView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: bottomSpace)
-            bottomCns.identifier = "bottomCnsForInputs"
-            self.view.needsUpdateConstraints()
-            self.view.addConstraint(bottomCns)
-            UIView.animateWithDuration(0.25, animations: { 
-                self.view.layoutIfNeeded()
-            })
-        }
-        
-        if textField.keyboardType == .NumberPad || textField.keyboardType == .PhonePad || textField.keyboardType == .DecimalPad{
+        if textField.keyboardType == .numberPad || textField.keyboardType == .phonePad || textField.keyboardType == .decimalPad{
             let keyboardDoneButtonView = UIToolbar()
             keyboardDoneButtonView.sizeToFit()
             
             // Setup the buttons to be put in the system.
             var item: UIBarButtonItem = UIBarButtonItem()
-            item = UIBarButtonItem(title: "Done", style: UIBarButtonItemStyle.Plain, target: self, action: #selector(onTextFieldDoneTap) )
+            item = UIBarButtonItem(title: "Done", style: UIBarButtonItemStyle.plain, target: self, action: #selector(onTextFieldDoneTap) )
             
-            let flexSpace: UIBarButtonItem = UIBarButtonItem(barButtonSystemItem: UIBarButtonSystemItem.FlexibleSpace, target: nil, action: nil)
+            let flexSpace: UIBarButtonItem = UIBarButtonItem(barButtonSystemItem: UIBarButtonSystemItem.flexibleSpace, target: nil, action: nil)
             let toolbarButtons = [flexSpace,item]
             
             //Put the buttons into the ToolBar and display the tool bar
@@ -1137,66 +1377,44 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         return true
     }
     
-    func textFieldShouldReturn(textField: UITextField) -> Bool {
-        textField.resignFirstResponder()
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        if textField.returnKeyType == .next{
+            if let nextTextField: UITextField = textField.superview?.viewWithTag(textField.tag + 1) as? UITextField{
+                nextTextField.becomeFirstResponder()
+            }
+        }else{
+            textField.resignFirstResponder()
+        }
         
         return false
     }
     
-    func textFieldDidEndEditing(textField: UITextField) {
-        self.view.needsUpdateConstraints()
-        for cns in self.view.constraints{
-            if cns.identifier == "bottomCnsForInputs"{
-                self.view.removeConstraint(cns)
-                break
-            }
+    func textFieldDidEndEditing(_ textField: UITextField) {
+        if style == .actionSheet{
+            actionSheetBottomConstraint.constant = 0
         }
-        UIView.animateWithDuration(0.25, animations: {
+        
+        UIView.animate(withDuration: 0.25, animations: {
             self.view.layoutIfNeeded()
         })
     }
     
-    func onTextFieldDoneTap(){
+    @objc func onTextFieldDoneTap(){
         selectedTextField?.resignFirstResponder()
     }
     
     // MARK: - UITextViewDelegate
-    func textViewShouldBeginEditing(textView: UITextView) -> Bool {
+    func textViewShouldBeginEditing(_ textView: UITextView) -> Bool {
         selectedTextView = textView
-        
-        var point: CGPoint = self.view.convertPoint(CGPointMake(self.view.frame.size.width / 2, self.view.frame.size.height), toView: textView)
-        point.y = point.y - textView.contentOffset.y
-        //print(point)
-        //print(self.view.frame.size.height - point.y)
-        if self.view.frame.size.height - point.y < 284{
-            let anotherPoint: CGPoint = self.view.convertPoint(CGPointMake(self.view.frame.size.width / 2, self.view.frame.size.height), toView: self.containerView)
-            //print("point = \(point), anotherPoint = \(anotherPoint)")
-            
-            for cns in self.view.constraints{
-                if cns.identifier == "bottomCnsForInputs"{
-                    self.view.removeConstraint(cns)
-                    break
-                }
-            }
-            
-            let bottomSpace: CGFloat = 284.0 - (anotherPoint.y - point.y)
-            let bottomCns: NSLayoutConstraint = NSLayoutConstraint(item: self.view, attribute: NSLayoutAttribute.Bottom, relatedBy: NSLayoutRelation.Equal, toItem: self.containerView, attribute: NSLayoutAttribute.Bottom, multiplier: 1.0, constant: bottomSpace)
-            bottomCns.identifier = "bottomCnsForInputs"
-            self.view.needsUpdateConstraints()
-            self.view.addConstraint(bottomCns)
-            UIView.animateWithDuration(0.25, animations: {
-                self.view.layoutIfNeeded()
-            })
-        }
         
         let keyboardDoneButtonView = UIToolbar()
         keyboardDoneButtonView.sizeToFit()
         
         // Setup the buttons to be put in the system.
         var item: UIBarButtonItem = UIBarButtonItem()
-        item = UIBarButtonItem(title: "Done", style: UIBarButtonItemStyle.Plain, target: self, action: #selector(onTextViewDoneTap) )
+        item = UIBarButtonItem(title: "Done", style: UIBarButtonItemStyle.plain, target: self, action: #selector(onTextViewDoneTap) )
         
-        let flexSpace: UIBarButtonItem = UIBarButtonItem(barButtonSystemItem: UIBarButtonSystemItem.FlexibleSpace, target: nil, action: nil)
+        let flexSpace: UIBarButtonItem = UIBarButtonItem(barButtonSystemItem: UIBarButtonSystemItem.flexibleSpace, target: nil, action: nil)
         let toolbarButtons = [flexSpace,item]
         
         //Put the buttons into the ToolBar and display the tool bar
@@ -1206,20 +1424,7 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
         return true
     }
     
-    func textViewDidEndEditing(textView: UITextView) {
-        self.view.needsUpdateConstraints()
-        for cns in self.view.constraints{
-            if cns.identifier == "bottomCnsForInputs"{
-                self.view.removeConstraint(cns)
-                break
-            }
-        }
-        UIView.animateWithDuration(0.25, animations: {
-            self.view.layoutIfNeeded()
-        })
-    }
-    
-    func onTextViewDoneTap(){
+    @objc func onTextViewDoneTap(){
         selectedTextView?.resignFirstResponder()
     }
     
@@ -1228,11 +1433,20 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     override func viewDidLoad() {
         super.viewDidLoad()
         
-         NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(keyboardWillShowNotification(_:)), name: UIKeyboardWillShowNotification, object: nil)
     }
     
-    override func viewWillDisappear(animated: Bool) {
-        NSNotificationCenter.defaultCenter().removeObserver(self, name: UIKeyboardWillShowNotification, object: nil)
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShowNotification(_:)), name: NSNotification.Name.UIKeyboardWillShow, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHideNotification(_:)), name: NSNotification.Name.UIKeyboardWillHide, object: nil)
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        
+        NotificationCenter.default.removeObserver(self, name: NSNotification.Name.UIKeyboardWillShow, object: nil)
+        NotificationCenter.default.removeObserver(self, name: NSNotification.Name.UIKeyboardWillHide, object: nil)
     }
     
     override func didReceiveMemoryWarning() {
@@ -1241,116 +1455,169 @@ class DVAlertViewController: UIViewController, UITableViewDataSource, UITableVie
     }
     
     //MARK: - keyboardWillShowNotification
-    func keyboardWillShowNotification(notification: NSNotification){
-        if let value: NSValue = notification.userInfo?[UIKeyboardFrameEndUserInfoKey] as? NSValue{
-            let rawFrame: CGRect = value.CGRectValue()
-            let keyboardFrame: CGRect = self.view.convertRect(rawFrame, fromView: nil)
+    @objc func keyboardWillShowNotification(_ notification: Notification){
+        if let value: NSValue = (notification as NSNotification).userInfo?[UIKeyboardFrameEndUserInfoKey] as? NSValue{
+            let rawFrame: CGRect = value.cgRectValue
+            let keyboardFrame: CGRect = self.view.convert(rawFrame, from: nil)
             
             kbHeight = keyboardFrame.height
-            //print("keyboardHieght: \(keyboardFrame.height)")
+            //DVPrint("keyboardHieght: \(keyboardFrame.height)")
+            
+            if style == .actionSheet{
+                self.view.needsUpdateConstraints()
+                actionSheetBottomConstraint.constant = kbHeight
+                UIView.animate(withDuration: 0.25, animations: { () -> Void in
+                    self.view.layoutIfNeeded()
+                })
+            }else if style == .popup{
+                let position: CGPoint = self.view.convert(CGPoint.zero, to: self.containerView)
+                if self.view.frame.size.height - (abs(position.y) + self.containerView.frame.size.height) < kbHeight{
+                    var shouldAddBottomCns: Bool = true
+                    for cns in self.view.constraints{
+                        if cns.identifier == "bottomCnsForInputs"{
+                            shouldAddBottomCns = false
+                        }
+                    }
+                    
+                    if shouldAddBottomCns{
+                        let bottomSpace: CGFloat = kbHeight
+                        let bottomCns: NSLayoutConstraint = NSLayoutConstraint(item: self.view, attribute: NSLayoutAttribute.bottom, relatedBy: NSLayoutRelation.equal, toItem: self.containerView, attribute: NSLayoutAttribute.bottom, multiplier: 1.0, constant: bottomSpace)
+                        bottomCns.identifier = "bottomCnsForInputs"
+                        self.view.needsUpdateConstraints()
+                        self.view.addConstraint(bottomCns)
+                        UIView.animate(withDuration: 0.25, animations: {
+                            self.view.layoutIfNeeded()
+                        })
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - keyboardWillHideNotification
+    @objc func keyboardWillHideNotification(_ notification: Notification){
+        kbHeight = 0
+        
+        if style == .actionSheet{
+            self.view.needsUpdateConstraints()
+            actionSheetBottomConstraint.constant = kbHeight
+            UIView.animate(withDuration: 0.25, animations: { () -> Void in
+                self.view.layoutIfNeeded()
+            })
+        }else if style == .popup{
+            self.view.needsUpdateConstraints()
+            for cns in self.view.constraints{
+                if cns.identifier == "bottomCnsForInputs"{
+                    self.view.removeConstraint(cns)
+                    break
+                }
+            }
+            UIView.animate(withDuration: 0.25, animations: {
+                self.view.layoutIfNeeded()
+            })
         }
     }
     
     // MARK: - isPhone
     func isPhone() -> Bool{
-        return (UIDevice.currentDevice().userInterfaceIdiom == UIUserInterfaceIdiom.Phone ? true : false)
+        return (UIDevice.current.userInterfaceIdiom == UIUserInterfaceIdiom.phone ? true : false)
     }
     
     // MARK: - isPad
     func isPad() -> Bool{
-        return (UIDevice.currentDevice().userInterfaceIdiom == UIUserInterfaceIdiom.Pad ? true : false)
+        return (UIDevice.current.userInterfaceIdiom == UIUserInterfaceIdiom.pad ? true : false)
     }
     
     func isIphone4S() -> Bool{
-        return UIScreen.mainScreen().bounds.size.height <= 480 ? true : false
-    }
-
-    override func preferredStatusBarStyle() -> UIStatusBarStyle {
-        return parentController.preferredStatusBarStyle()
+        return UIScreen.main.bounds.size.height <= 480 ? true : false
     }
     
     // MARK: - Geometry
-    func newBubble(x: CGPoint, y: CGPoint, z: CGPoint) -> CGPathRef{
-        let path: CGMutablePathRef = CGPathCreateMutable()
-        CGPathMoveToPoint(path, nil, x.x, x.y)
+    func newBubble(_ x: CGPoint, y: CGPoint, z: CGPoint) -> CGPath{
+        let path: CGMutablePath = CGMutablePath()
+        path.move(to: x)
+        path.addLine(to: y)
+        path.addLine(to: z)
+        path.addLine(to: x)
+        /*CGPathMoveToPoint(path, nil, x.x, x.y)
         CGPathAddLineToPoint(path, nil, y.x, y.y)
         CGPathAddLineToPoint(path, nil, z.x, z.y)
         CGPathAddLineToPoint(path, nil, x.x, x.y)
+        */
         
-        
-        CGPathCloseSubpath(path)
+        path.closeSubpath()
         return path
     }
     
-    func addBorder(view: UIView, edges: UIRectEdge, colour: UIColor = UIColor.whiteColor(), thickness: CGFloat = 1) -> [UIView] {
+    func addBorder(_ view: UIView, edges: UIRectEdge, colour: UIColor = UIColor.white, thickness: CGFloat = 1) -> [UIView] {
         
         var borders = [UIView]()
         
         func border() -> UIView {
-            let border = UIView(frame: CGRectZero)
+            let border = UIView(frame: CGRect.zero)
             border.backgroundColor = colour
             border.translatesAutoresizingMaskIntoConstraints = false
             return border
         }
         
-        if edges.contains(.Top) || edges.contains(.All) {
+        if edges.contains(.top) || edges.contains(.all) {
             let top = border()
             view.addSubview(top)
             view.addConstraints(
-                NSLayoutConstraint.constraintsWithVisualFormat("V:|-(0)-[top(==thickness)]",
+                NSLayoutConstraint.constraints(withVisualFormat: "V:|-(0)-[top(==thickness)]",
                     options: [],
                     metrics: ["thickness": thickness],
                     views: ["top": top]))
             view.addConstraints(
-                NSLayoutConstraint.constraintsWithVisualFormat("H:|-(0)-[top]-(0)-|",
+                NSLayoutConstraint.constraints(withVisualFormat: "H:|-(0)-[top]-(0)-|",
                     options: [],
                     metrics: nil,
                     views: ["top": top]))
             borders.append(top)
         }
         
-        if edges.contains(.Left) || edges.contains(.All) {
+        if edges.contains(.left) || edges.contains(.all) {
             let left = border()
             view.addSubview(left)
             view.addConstraints(
-                NSLayoutConstraint.constraintsWithVisualFormat("H:|-(0)-[left(==thickness)]",
+                NSLayoutConstraint.constraints(withVisualFormat: "H:|-(0)-[left(==thickness)]",
                     options: [],
                     metrics: ["thickness": thickness],
                     views: ["left": left]))
             view.addConstraints(
-                NSLayoutConstraint.constraintsWithVisualFormat("V:|-(0)-[left]-(0)-|",
+                NSLayoutConstraint.constraints(withVisualFormat: "V:|-(0)-[left]-(0)-|",
                     options: [],
                     metrics: nil,
                     views: ["left": left]))
             borders.append(left)
         }
         
-        if edges.contains(.Right) || edges.contains(.All) {
+        if edges.contains(.right) || edges.contains(.all) {
             let right = border()
             view.addSubview(right)
             view.addConstraints(
-                NSLayoutConstraint.constraintsWithVisualFormat("H:[right(==thickness)]-(0)-|",
+                NSLayoutConstraint.constraints(withVisualFormat: "H:[right(==thickness)]-(0)-|",
                     options: [],
                     metrics: ["thickness": thickness],
                     views: ["right": right]))
             view.addConstraints(
-                NSLayoutConstraint.constraintsWithVisualFormat("V:|-(0)-[right]-(0)-|",
+                NSLayoutConstraint.constraints(withVisualFormat: "V:|-(0)-[right]-(0)-|",
                     options: [],
                     metrics: nil,
                     views: ["right": right]))
             borders.append(right)
         }
         
-        if edges.contains(.Bottom) || edges.contains(.All) {
+        if edges.contains(.bottom) || edges.contains(.all) {
             let bottom = border()
             view.addSubview(bottom)
             view.addConstraints(
-                NSLayoutConstraint.constraintsWithVisualFormat("V:[bottom(==thickness)]-(0)-|",
+                NSLayoutConstraint.constraints(withVisualFormat: "V:[bottom(==thickness)]-(0)-|",
                     options: [],
                     metrics: ["thickness": thickness],
                     views: ["bottom": bottom]))
             view.addConstraints(
-                NSLayoutConstraint.constraintsWithVisualFormat("H:|-(0)-[bottom]-(0)-|",
+                NSLayoutConstraint.constraints(withVisualFormat: "H:|-(0)-[bottom]-(0)-|",
                     options: [],
                     metrics: nil,
                     views: ["bottom": bottom]))
@@ -1366,7 +1633,7 @@ extension UIView {
     var parentViewController: UIViewController? {
         var parentResponder: UIResponder? = self
         while parentResponder != nil {
-            parentResponder = parentResponder!.nextResponder()
+            parentResponder = parentResponder!.next
             if let viewController = parentResponder as? UIViewController {
                 return viewController
             }
